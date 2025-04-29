@@ -1,5 +1,3 @@
-Code.require_file("./lib/example.ex")
+Code.require_file("./lib/fuzzer.ex")
 
-
-IO.inspect("Test")
-IO.inspect(Example.hello())
+IO.inspect(Fuzzer.hello())
