@@ -126,7 +126,7 @@ defmodule Injector do
         res =
           try do
             unquote(traverse_statements(stmt, 0, "S"))
-          catch
+          rescue
             e -> e
           end
 

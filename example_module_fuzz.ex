@@ -28,10 +28,11 @@ defmodule NumberChecker do
               :negative
             else
               send(state_pid, "S-1F-3F")
+              raise "ERR"
               :zero
             end
           end
-        catch
+        rescue
           e -> e
         end
 

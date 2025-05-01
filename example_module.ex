@@ -13,6 +13,7 @@ defmodule NumberChecker do
       if num < 0 do
         :negative
       else
+        raise "ERR"
         :zero
       end
     end
