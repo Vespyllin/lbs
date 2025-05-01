@@ -110,18 +110,13 @@ defmodule Injector do
       quote do
         state_pid =
           spawn(fn ->
-            state = []
-
             receive_loop = fn receive_loop, state ->
               receive do
-                id ->
-                  receive_loop.(receive_loop, [id | state])
-
                 {:request, requestor_pid} ->
                   send(requestor_pid, {:response, state})
 
-                _ ->
-                  receive_loop.(receive_loop, state)
+                id ->
+                  receive_loop.(receive_loop, [id | state])
               end
             end
 

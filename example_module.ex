@@ -17,32 +17,4 @@ defmodule NumberChecker do
       end
     end
   end
-
-  def check_number2(num) do
-    if num > 0 do
-      :positive
-      :positive
-    else
-      if num < 0 do
-        :negative
-      else
-        :zero
-      end
-    end
-  end
-
-  def check_number(num) do
-    :test
-
-    if num > 0 do
-      :positive
-      :positive
-    else
-      if num < 0 do
-        :negative
-      else
-        :zero
-      end
-    end
-  end
 end
