@@ -105,32 +105,101 @@ defmodule Injector do
   end
 
   # Unravel functions
-  defp handle_fn_def([fn_name, [{:do, {:__block__, meta, [stmts]}}]]) do
-    modified_body = [
+  defp handle_fn_def([{fn_name, meta, params}, [do: stmt]]) do
+    modified_body =
       quote do
-        branch_ids = []
-      end,
-      quote do
-        try do
-          unquote(stmts)
-        catch
-          e -> {e, branch_ids}
+        state_pid =
+          spawn(fn ->
+            state = []
+
+            receive_loop = fn receive_loop, state ->
+              receive do
+                id ->
+                  receive_loop.(receive_loop, [id | state])
+
+                {:request, requestor_pid} ->
+                  send(requestor_pid, {:response, state})
+
+                _ ->
+                  receive_loop.(receive_loop, state)
+              end
+            end
+
+            receive_loop.(receive_loop, [])
+          end)
+
+        res =
+          try do
+            unquote(traverse_statements(stmt, 0, "S"))
+          catch
+            e -> e
+          end
+
+        send(state_pid, {:request, self()})
+
+        receive do
+          {:response, list} -> {res, list}
         end
-      end,
-      quote do
-        branch_ids
       end
-    ]
 
-    [fn_name, [{:do, {:__block__, meta, modified_body}}]]
-  end
-
-  # Convert function to block format
-  defp handle_fn_def([fn_name, [{:do, stmt}]]) do
-    handle_fn_def([fn_name, [{:do, {:__block__, [], [stmt]}}]])
+    [{fn_name, meta, params}, [do: {:__block__, meta, [modified_body]}]]
   end
 
   # Inject feedback code
-  defp handle_statements() do
+
+  defp traverse_statements([head | tail], ctr, id) do
+    [handle_statements(head, ctr, id) | traverse_statements(tail, ctr + 1, id)]
+  end
+
+  defp traverse_statements({:__block__, meta, stmts}, ctr, id) do
+    {:__block__, meta, traverse_statements(stmts, ctr, id)}
+  end
+
+  defp traverse_statements([], _ctr, _id) do
+    []
+  end
+
+  defp traverse_statements(pass, ctr, id) do
+    handle_statements(pass, ctr + 1, id)
+  end
+
+  defp handle_statements({:if, meta, [cond_stmt, clauses]}, ctr, id) do
+    injected_clauses =
+      case clauses do
+        [do: do_clause, else: else_clause] ->
+          [
+            do: inject_do(do_clause, ctr + 1, id <> "-" <> to_string(ctr) <> "T"),
+            else: inject_do(else_clause, ctr + 1, id <> "-" <> to_string(ctr) <> "F")
+          ]
+
+        [do: do_clause] ->
+          [do: inject_do(do_clause, ctr + 1, id <> "-" <> to_string(ctr) <> "T")]
+
+        r ->
+          raise ArgumentError, message: "UNHANDLED IF CONSTRUCT" <> to_string(r)
+      end
+
+    {:if, meta, [cond_stmt, injected_clauses]}
+  end
+
+  defp handle_statements(pass, _ctr, _id) do
+    pass
+  end
+
+  defp inject_do({:__block__, meta, stmts}, ctr, id) do
+    injection =
+      quote do
+        send(state_pid, unquote(id))
+      end
+
+    {:__block__, meta, [injection | traverse_statements(stmts, ctr, id)]}
+  end
+
+  defp inject_do(stmt, ctr, id) do
+    quote do
+      send(state_pid, unquote(id))
+
+      unquote(traverse_statements(stmt, ctr, id))
+    end
   end
 end
