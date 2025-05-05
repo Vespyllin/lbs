@@ -8,8 +8,13 @@ defmodule NumberChecker do
     end
 
     def hook(fuzzed_params) when is_list(fuzzed_params) do
-      state_pid = spawn(fn -> state_server(["root"]) end)
-      apply(__MODULE__, :check_number, fuzzed_params ++ [state_pid])
+      state_pid = spawn(fn -> state_server([]) end)
+      res = apply(__MODULE__, :fuzz_target, fuzzed_params ++ [state_pid])
+      send(state_pid, {:request, self()})
+
+      receive do
+        {:response, list} -> {res, list}
+      end
     end
   )
 
@@ -23,51 +28,34 @@ defmodule NumberChecker do
     :positive
   end
 
-  def check_number(-2, state_pid) do
-    (
-      res =
-        try do
-          :positive
-        rescue
-          e -> e
-        end
-
-      send(state_pid, {:request, self()})
-
-      receive do
-        {:response, list} -> {res, list}
-      end
-    )
+  def fuzz_target(-2, state_pid) do
+    try do
+      :positive
+      fuzz_target(0, state_pid)
+    rescue
+      e -> e
+    end
   end
 
-  def check_number(num, state_pid) do
-    (
-      res =
-        try do
-          if num > 0 do
-            send(state_pid, "S-1T")
-            :positive
-          else
-            send(state_pid, "S-1F")
+  def fuzz_target(num, state_pid) do
+    try do
+      if num > 0 do
+        send(state_pid, "S-1T")
+        :positive
+      else
+        send(state_pid, "S-1F")
 
-            if num < 0 do
-              send(state_pid, "S-1F-3T")
-              :negative
-            else
-              send(state_pid, "S-1F-3F")
-              raise "ERR"
-              :zero
-            end
-          end
-        rescue
-          e -> e
+        if num < 0 do
+          send(state_pid, "S-1F-3T")
+          :negative
+        else
+          send(state_pid, "S-1F-3F")
+          raise "ERR"
+          :zero
         end
-
-      send(state_pid, {:request, self()})
-
-      receive do
-        {:response, list} -> {res, list}
       end
-    )
+    rescue
+      e -> e
+    end
   end
 end

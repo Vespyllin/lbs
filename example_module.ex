@@ -16,6 +16,7 @@ defmodule NumberChecker do
 
   def check_number(-2) do
     :positive
+    check_number(0)
   end
 
   def check_number(num) do

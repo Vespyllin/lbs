@@ -1,4 +1,6 @@
 defmodule Injector do
+  @fuzz_target :fuzz_target
+
   def hello() do
     IO.inspect("Injector")
   end
@@ -129,7 +131,12 @@ defmodule Injector do
         def hook(fuzzed_params) when is_list(fuzzed_params) do
           state_pid = spawn(fn -> state_server([]) end)
 
-          apply(__MODULE__, unquote(fn_name), fuzzed_params ++ [state_pid])
+          res = apply(__MODULE__, unquote(@fuzz_target), fuzzed_params ++ [state_pid])
+          send(state_pid, {:request, self()})
+
+          receive do
+            {:response, list} -> {res, list}
+          end
         end
       end
 
@@ -148,29 +155,21 @@ defmodule Injector do
   defp handle_mod_members(pass, _, _), do: pass
 
   # Unravel functions
-
   defp handle_fn_def([{fn_name, meta, params}, [do: stmt]], fn_name, arity)
        when length(params) == arity do
     state_pid_var = Macro.var(:state_pid, nil)
 
     modified_body =
       quote do
-        res =
-          try do
-            unquote(traverse_statements(stmt, 0, "S"))
-          rescue
-            e -> e
-          end
-
-        send(unquote(state_pid_var), {:request, self()})
-
-        receive do
-          {:response, list} -> {res, list}
+        try do
+          unquote(traverse_statements(stmt, 0, "S", fn_name, arity))
+        rescue
+          e -> e
         end
       end
 
     [
-      {fn_name, meta, params ++ [state_pid_var]},
+      {@fuzz_target, meta, params ++ [state_pid_var]},
       [do: {:__block__, meta, [modified_body]}]
     ]
   end
@@ -180,31 +179,39 @@ defmodule Injector do
   end
 
   # Inject feedback code
-  defp traverse_statements(stmts, ctr, id) when is_list(stmts) do
-    Enum.map(stmts, fn stmt -> handle_statements(stmt, ctr, id) end)
+  defp traverse_statements(stmts, ctr, id, fn_name, arity) when is_list(stmts) do
+    Enum.map(stmts, fn stmt -> handle_statement(stmt, ctr, id, fn_name, arity) end)
   end
 
-  defp traverse_statements({:__block__, meta, stmts}, ctr, id) do
-    {:__block__, meta, traverse_statements(stmts, ctr, id)}
+  defp traverse_statements({:__block__, meta, stmts}, ctr, id, fn_name, arity) do
+    {:__block__, meta, traverse_statements(stmts, ctr, id, fn_name, arity)}
   end
 
-  defp traverse_statements(pass, ctr, id), do: handle_statements(pass, ctr + 1, id)
+  defp traverse_statements(pass, ctr, id, fn_name, arity),
+    do: handle_statement(pass, ctr + 1, id, fn_name, arity)
 
   defp suffix(id, ctr, tag) do
     id <> "-" <> to_string(ctr) <> tag
   end
 
-  defp handle_statements({:if, meta, [cond_stmt, clauses]}, ctr, id) do
+  defp handle_statement({fn_name, meta, params}, _ctr, _id, fn_name, arity)
+       when length(params) == arity do
+    state_pid_var = Macro.var(:state_pid, nil)
+
+    {@fuzz_target, meta, params ++ [state_pid_var]}
+  end
+
+  defp handle_statement({:if, meta, [cond_stmt, clauses]}, ctr, id, fn_name, arity) do
     injected_clauses =
       case clauses do
         [do: do_clause, else: else_clause] ->
           [
-            do: inject_do(do_clause, ctr + 1, suffix(id, ctr, "T")),
-            else: inject_do(else_clause, ctr + 1, suffix(id, ctr, "F"))
+            do: inject_do(do_clause, ctr + 1, suffix(id, ctr, "T"), fn_name, arity),
+            else: inject_do(else_clause, ctr + 1, suffix(id, ctr, "F"), fn_name, arity)
           ]
 
         [do: do_clause] ->
-          [do: inject_do(do_clause, ctr + 1, suffix(id, ctr, "T"))]
+          [do: inject_do(do_clause, ctr + 1, suffix(id, ctr, "T"), fn_name, arity)]
 
         r ->
           raise ArgumentError, message: "UNHANDLED IF CONSTRUCT" <> to_string(r)
@@ -213,11 +220,11 @@ defmodule Injector do
     {:if, meta, [cond_stmt, injected_clauses]}
   end
 
-  defp handle_statements(pass, _ctr, _id) do
+  defp handle_statement(pass, _ctr, _id, _fn_name, _arity) do
     pass
   end
 
-  defp inject_do({:__block__, meta, stmts}, ctr, id) do
+  defp inject_do({:__block__, meta, stmts}, ctr, id, fn_name, arity) do
     state_pid_var = Macro.var(:state_pid, nil)
 
     injection =
@@ -225,16 +232,16 @@ defmodule Injector do
         send(unquote(state_pid_var), unquote(id))
       end
 
-    {:__block__, meta, [injection | traverse_statements(stmts, ctr, id)]}
+    {:__block__, meta, [injection | traverse_statements(stmts, ctr, id, fn_name, arity)]}
   end
 
-  defp inject_do(stmt, ctr, id) do
+  defp inject_do(stmt, ctr, id, fn_name, arity) do
     state_pid_var = Macro.var(:state_pid, nil)
 
     quote do
       send(unquote(state_pid_var), unquote(id))
 
-      unquote(traverse_statements(stmt, ctr, id))
+      unquote(traverse_statements(stmt, ctr, id, fn_name, arity))
     end
   end
 end
