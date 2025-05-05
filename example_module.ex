@@ -6,7 +6,19 @@ defmodule NumberChecker do
   @doc """
   Checks the given number and returns a descriptive string.
   """
-  def check_number3(num) do
+  def not_check_number() do
+    :positive
+  end
+
+  def check_number() do
+    :positive
+  end
+
+  def check_number(-2) do
+    :positive
+  end
+
+  def check_number(num) do
     if num > 0 do
       :positive
     else
