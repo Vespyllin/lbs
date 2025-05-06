@@ -32,30 +32,18 @@ defmodule Fuzzer do
   end
 
   @doc """
-  Fuzz a string a specified number of times. Prints the result.
+    Mutate a string a specified number of times. Prints the result.
   """
-  @spec fuzz(String.t(), integer()) :: any()
-  def fuzz(item, n) do
+  @spec mutate(String.t(), integer()) :: any()
+  def mutate(item, n) do
     mutators = [
       &delete_random_character/1,
       &insert_random_printable_ascii_character/1,
       &flip_random_bit/1
     ]
 
-    Enum.reduce(1..n, item, fn i, acc ->
-      fun = Enum.random(mutators)
-      acc = fun.(acc)
-      IO.puts("#{i}: " <> "#{acc}")
-      acc
+    Enum.reduce(1..n, item, fn _, acc ->
+      Enum.random(mutators).(acc)
     end)
-  end
-
-  def hello do
-    # delete_random_character("Hello")
-    # insert_random_printable_ascii_character("Hello")
-    # flip_random_bit("Hello")
-    # str = "Hello, I am testing my mutators. Yay!"
-    # fuzz(str, 20)
-    IO.inspect("Fuzzer")
   end
 end

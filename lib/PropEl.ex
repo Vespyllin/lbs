@@ -63,9 +63,13 @@ defmodule PropEl do
   defp fuzz_loop(_, _, 0, _, _, _), do: :no_bug
 
   defp fuzz_loop(queue_pid, coverage_pid, iter, mod, input, p) do
+    # Run function
     {res, path_ids} = apply(mod, :hook, [input])
+
+    # Generate path hash (TODO: look into sophistication)
     path_hash = Enum.join(path_ids, "/")
 
+    # Check property
     if !p.(res) do
       :bug
     else
@@ -97,14 +101,17 @@ defmodule PropEl do
     end
   end
 
-  def handle(source_file, fn_name, arity, p \\ fn _ -> true end) do
+  def handle(source_file, fn_name, arity, p) do
     # Instrument fuzzing framework
+    IO.puts("Injecting fuzzing framework.")
     mod = Injector.handle(source_file, fn_name, arity)
+    IO.puts("Fuzzing framework injected.")
 
     # Spawn state servers
     queue_pid = spawn(fn -> queue_server(%{qsucc: [], qdisc: []}) end)
     coverage_pid = spawn(fn -> coverage_server(MapSet.new()) end)
 
+    IO.puts("Initiating fuzzing loop.")
     # Return results
     IO.inspect(fuzz_loop(queue_pid, coverage_pid, @max_iter, mod, [-2], p))
   end

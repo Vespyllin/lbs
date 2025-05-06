@@ -1,26 +1,14 @@
 defmodule Injector do
   @fuzz_target :fuzz_target
 
-  def hello() do
-    IO.inspect("Injector")
-  end
-
   def handle(source_file, fn_name, arity)
       when is_atom(fn_name) and is_number(arity) do
-    unless String.ends_with?(source_file, ".ex") do
-      raise("Source must be a .ex file.")
-    end
-
-    IO.puts("Injecting fuzzing framework.")
-
     [{mod_name, _}] =
       source_file
       |> File.read!()
       |> Code.string_to_quoted!()
       |> handle_ast({fn_name, arity})
       |> Code.compile_quoted()
-
-    IO.puts("Fuzzing framework injected.")
 
     mod_name
   end
