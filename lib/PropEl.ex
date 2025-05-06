@@ -1,9 +1,111 @@
-import Fuzzer
-import Injector
+defmodule PropEl do
+  @max_iter 1000
+  @succ_energy 100
+  @disc_energy 25
 
-defmodule Injector do
-  def hello() do
-    Fuzzer.hello()
-    Injector.hello()
+  defp queue_server(state) do
+    receive do
+      {:successful, id, energy} ->
+        new_state = %{state | qsucc: state.qsucc ++ [{id, energy}]}
+        queue_server(new_state)
+
+      {:discard, id, energy} ->
+        new_state = %{state | qdisc: state.qdisc ++ [{id, energy}]}
+        queue_server(new_state)
+
+      {:dequeue, caller} ->
+        case state.qsucc do
+          [{id, energy} | rest] when energy > 1 ->
+            send(caller, {:ok, id})
+            queue_server(%{state | qsucc: [{id, energy - 1} | rest]})
+
+          [{id, 1} | rest] ->
+            send(caller, {:ok, id})
+            queue_server(%{state | qsucc: rest})
+
+          [] ->
+            case state.qdisc do
+              [{id, energy} | rest] when energy > 1 ->
+                send(caller, {:ok, id})
+                queue_server(%{state | qdisc: [{id, energy - 1} | rest]})
+
+              [{id, 1} | rest] ->
+                send(caller, {:ok, id})
+                queue_server(%{state | qdisc: rest})
+
+              [] ->
+                send(caller, nil)
+                queue_server(state)
+            end
+        end
+
+      :stop ->
+        :ok
+    end
+  end
+
+  defp coverage_server(state) do
+    receive do
+      {:check, id, caller} ->
+        response = if MapSet.member?(state, id), do: :seen, else: :new
+        send(caller, response)
+        coverage_server(state)
+
+      {:submit, id} ->
+        new_state = MapSet.put(state, id)
+        coverage_server(new_state)
+
+      :stop ->
+        :ok
+    end
+  end
+
+  defp fuzz_loop(_, _, 0, _, _, _), do: :no_bug
+
+  defp fuzz_loop(queue_pid, coverage_pid, iter, mod, input, p) do
+    {res, path_ids} = apply(mod, :hook, [input])
+    path_hash = Enum.join(path_ids, "/")
+
+    if !p.(res) do
+      :bug
+    else
+      # Check coverage
+      send(coverage_pid, {:check, path_hash, self()})
+
+      # Queue accordingly
+      receive do
+        :new ->
+          send(queue_pid, {:successful, input, @succ_energy})
+          send(coverage_pid, {:submit, path_hash})
+
+        :seen ->
+          send(queue_pid, {:discard, input, @disc_energy})
+      end
+
+      # Get next input
+      send(queue_pid, {:dequeue, self()})
+
+      next_input =
+        receive do
+          # TODO: Mutation
+          {:ok, val} -> val
+          # Generate randomly
+          nil -> nil
+        end
+
+      fuzz_loop(queue_pid, coverage_pid, iter - 1, mod, next_input, p)
+    end
+  end
+
+  def handle(source_file, fn_name, arity, p \\ fn _ -> true end) do
+    # Instrument fuzzing framework
+    mod = Injector.handle(source_file, fn_name, arity)
+
+    # Spawn state servers
+    queue_pid = spawn(fn -> queue_server(%{qsucc: [], qdisc: []}) end)
+    coverage_pid = spawn(fn -> coverage_server(MapSet.new()) end)
+
+    # Return results
+    IO.inspect(fuzz_loop(queue_pid, coverage_pid, @max_iter, mod, [-2], p))
   end
 end

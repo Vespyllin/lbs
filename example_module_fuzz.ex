@@ -28,34 +28,24 @@ defmodule NumberChecker do
     :positive
   end
 
-  def fuzz_target(-2, state_pid) do
-    try do
-      :positive
-      fuzz_target(0, state_pid)
-    rescue
-      e -> e
-    end
+  def check_number(-2, -3) do
+    :positive
+    :negative
   end
 
-  def fuzz_target(num, state_pid) do
-    try do
-      if num > 0 do
-        send(state_pid, "S-1T")
-        :positive
-      else
-        send(state_pid, "S-1F")
+  def check_number(num, thing) do
+    IO.inspect("thing")
+    IO.inspect(thing)
 
-        if num < 0 do
-          send(state_pid, "S-1F-3T")
-          :negative
-        else
-          send(state_pid, "S-1F-3F")
-          raise "ERR"
-          :zero
-        end
+    if num > 0 do
+      :positive
+    else
+      if num < 0 do
+        :negative
+      else
+        raise "ERR"
+        :zero
       end
-    rescue
-      e -> e
     end
   end
 end
