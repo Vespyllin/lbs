@@ -93,10 +93,11 @@ defmodule Fuzzer do
     Enum.map(items, fn x -> mutate(x, n) end)
   end
 
-  def gen(type, size) when type in [:number, :string] do
-    case type do
-      :number -> generate_num(32)
-      :string -> for _ <- 1..size, into: "", do: <<Enum.random(32..126)>>
+  def gen(type_or_value, size) do
+    case type_or_value do
+      :fuzz_number -> generate_num(32)
+      :fuzz_string -> for _ <- 1..size, into: "", do: <<Enum.random(32..126)>>
+      pass -> pass
     end
   end
 end

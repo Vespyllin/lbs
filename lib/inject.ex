@@ -1,7 +1,7 @@
 defmodule Injector do
   @fuzz_target :fuzz_target
 
-  def handle(source_file, fn_name, arity)
+  def instrument(source_file, fn_name, arity)
       when is_atom(fn_name) and is_number(arity) do
     [{mod_name, _}] =
       source_file
@@ -13,7 +13,7 @@ defmodule Injector do
     mod_name
   end
 
-  def _handle(source_file, fn_name, arity, dest_path \\ nil, source_code \\ false)
+  def _instrument(source_file, fn_name, arity, dest_path \\ nil, source_code \\ false)
       when is_atom(fn_name) and is_number(arity) do
     try do
       unless !dest_path || File.dir?(dest_path),

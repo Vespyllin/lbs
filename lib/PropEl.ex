@@ -2,8 +2,9 @@ defmodule PropEl do
   @max_iter 100_000
   @succ_energy 2500
   @disc_energy 500
-  @amount_of_mutations 50
-  @default_size 64
+  @mutation_amp 50
+  @default_input_size 64
+  @fuzz_atoms [:fuzz_number, :fuzz_string]
 
   defp queue_server(state) do
     receive do
@@ -64,7 +65,7 @@ defmodule PropEl do
 
   defp fuzz_loop(_, 0, _), do: {:no_bug}
 
-  defp fuzz_loop(config = {queue_pid, coverage_pid, mod, types, p}, iter, input) do
+  defp fuzz_loop(config = {queue_pid, coverage_pid, mod, input_spec, p}, iter, input) do
     # Run function
     {res, path_ids} = apply(mod, :hook, [input])
 
@@ -93,23 +94,38 @@ defmodule PropEl do
 
       next_input =
         receive do
-          # Mutate
-          {:ok, val} ->
-            Fuzzer.mutate(val, @amount_of_mutations)
+          # Mutate only those inputs we're fuzzing
+          {:ok, recv_inputs} ->
+            Enum.zip(input_spec, recv_inputs)
+            |> Enum.map(fn
+              {atom, val} when atom in @fuzz_atoms ->
+                Fuzzer.mutate(val, @mutation_amp)
+
+              {default_val, _} ->
+                default_val
+            end)
 
           # Generate randomly
           nil ->
-            Enum.map(types, fn type -> Fuzzer.gen(type, @default_size) end)
+            Enum.map(input_spec, fn type -> Fuzzer.gen(type, @default_input_size) end)
         end
 
-      fuzz_loop(config, iter - 1, next_input)
+      fuzz_loop(config, iter - 1, IO.inspect(next_input))
     end
   end
 
-  def handle(source_file, fn_name, arity, types, p) do
+  def handle(source_file, fn_name, arity, input_spec, p) do
+    unless arity > 0, do: raise("Cannot fuzz a function with no parameters.")
+
+    unless arity == length(input_spec),
+      do: raise("All function parameters must be assigned a type or value.")
+
+    unless Enum.any?(input_spec, fn spec -> spec in @fuzz_atoms end),
+      do: raise("At least 1 parameter must be specified for fuzzing.")
+
     # Instrument fuzzing framework
     IO.puts("Injecting fuzzing framework.")
-    mod = Injector.handle(source_file, fn_name, arity)
+    mod = Injector.instrument(source_file, fn_name, arity)
     IO.puts("Fuzzing framework injected.")
 
     # Spawn state servers
@@ -117,12 +133,12 @@ defmodule PropEl do
     coverage_pid = spawn(fn -> coverage_server(MapSet.new()) end)
 
     # Generate random initial input
-    input = Enum.map(types, fn type -> Fuzzer.gen(type, @default_size) end)
+    input = Enum.map(input_spec, fn type -> Fuzzer.gen(type, @default_input_size) end)
 
     # Return results
     IO.puts("Initiating fuzzing loop.")
 
-    case fuzz_loop({queue_pid, coverage_pid, mod, types, p}, @max_iter, input) do
+    case fuzz_loop({queue_pid, coverage_pid, mod, input_spec, p}, @max_iter, input) do
       {:bug, iter, path_hash, res} ->
         IO.puts("Bug found at iter ##{@max_iter - iter} at #{path_hash}")
         IO.puts(inspect(res))
