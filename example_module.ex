@@ -24,9 +24,12 @@ defmodule NumberChecker do
       :positive
     else
       if num < 0 do
+        if num < -1000 and num > -1050 do
+          raise "YA FOUND ME"
+        end
+
         :negative
       else
-        raise "ERR"
         :zero
       end
     end

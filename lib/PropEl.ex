@@ -1,8 +1,9 @@
 defmodule PropEl do
-  @max_iter 1000
-  @succ_energy 100
-  @disc_energy 25
-  @amount_of_mutations 5
+  @max_iter 100_000
+  @succ_energy 2500
+  @disc_energy 500
+  @amount_of_mutations 50
+  @default_size 64
 
   defp queue_server(state) do
     receive do
@@ -61,19 +62,18 @@ defmodule PropEl do
     end
   end
 
-  defp fuzz_loop(_, _, 0, _, _, _), do: :no_bug
+  defp fuzz_loop(_, 0, _), do: {:no_bug}
 
-  defp fuzz_loop(queue_pid, coverage_pid, iter, mod, input, p) do
+  defp fuzz_loop(config = {queue_pid, coverage_pid, mod, types, p}, iter, input) do
     # Run function
     {res, path_ids} = apply(mod, :hook, [input])
 
     # Generate path hash (TODO: look into sophistication)
     path_hash = Enum.join(path_ids, "/")
 
-    # TODO
     # Check property
     if !p.(res) do
-      :bug
+      {:bug, iter, path_hash, res}
     else
       # Check coverage
       send(coverage_pid, {:check, path_hash, self()})
@@ -93,18 +93,20 @@ defmodule PropEl do
 
       next_input =
         receive do
-          # TODO: What is the point of lists of values. Handle multiple inputs?
+          # Mutate
           {:ok, val} ->
             Fuzzer.mutate(val, @amount_of_mutations)
+
           # Generate randomly
-          nil -> nil
+          nil ->
+            Enum.map(types, fn type -> Fuzzer.gen(type, @default_size) end)
         end
 
-      fuzz_loop(queue_pid, coverage_pid, iter - 1, mod, next_input, p)
+      fuzz_loop(config, iter - 1, next_input)
     end
   end
 
-  def handle(source_file, fn_name, arity, p) do
+  def handle(source_file, fn_name, arity, types, p) do
     # Instrument fuzzing framework
     IO.puts("Injecting fuzzing framework.")
     mod = Injector.handle(source_file, fn_name, arity)
@@ -114,8 +116,19 @@ defmodule PropEl do
     queue_pid = spawn(fn -> queue_server(%{qsucc: [], qdisc: []}) end)
     coverage_pid = spawn(fn -> coverage_server(MapSet.new()) end)
 
-    IO.puts("Initiating fuzzing loop.")
+    # Generate random initial input
+    input = Enum.map(types, fn type -> Fuzzer.gen(type, @default_size) end)
+
     # Return results
-    IO.inspect(fuzz_loop(queue_pid, coverage_pid, @max_iter, mod, [-2], p))
+    IO.puts("Initiating fuzzing loop.")
+
+    case fuzz_loop({queue_pid, coverage_pid, mod, types, p}, @max_iter, input) do
+      {:bug, iter, path_hash, res} ->
+        IO.puts("Bug found at iter ##{@max_iter - iter} at #{path_hash}")
+        IO.puts(inspect(res))
+
+      {:no_bug} ->
+        IO.puts("No bugs found.")
+    end
   end
 end

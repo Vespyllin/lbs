@@ -112,7 +112,7 @@ defmodule Injector do
               send(requestor_pid, {:response, state})
 
             id ->
-              state_server([id | state])
+              state_server(state ++ [id])
           end
         end
 
@@ -170,8 +170,12 @@ defmodule Injector do
   end
 
   # Inject feedback code
-  defp traverse_statements(stmts, tracking_data, fn_data) when is_list(stmts) do
-    Enum.map(stmts, fn stmt -> handle_statement(stmt, tracking_data, fn_data) end)
+  defp traverse_statements(stmts, {ctr, id}, fn_data) when is_list(stmts) do
+    stmts
+    |> Enum.with_index()
+    |> Enum.map(fn {stmt, idx} ->
+      handle_statement(stmt, {ctr + idx, id}, fn_data)
+    end)
   end
 
   defp traverse_statements({:__block__, meta, stmts}, tracking_data, fn_data) do

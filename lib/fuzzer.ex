@@ -1,26 +1,27 @@
 import Bitwise
 
 defmodule Fuzzer do
-  defp delete_random_character(str) do
+  # Strings
+  defp delete_random_character(str) when is_binary(str) do
     len = String.length(str)
     pos = :rand.uniform(len - 1)
     String.graphemes(str) |> List.delete_at(pos) |> Enum.join()
   end
 
-  defp insert_random_printable_ascii_character(str) do
+  defp insert_random_printable_ascii_character(str) when is_binary(str) do
     # Printable ASCII (space to ~)
     ascii = Enum.map(32..126, fn e -> <<e>> end)
     insert_random_chararcter(str, ascii)
   end
 
-  defp insert_random_chararcter(str, characters) do
+  defp insert_random_chararcter(str, characters) when is_binary(str) do
     len = String.length(str)
     pos = :rand.uniform(len + 1) - 1
     random_char = Enum.random(characters)
     String.graphemes(str) |> List.insert_at(pos, random_char) |> Enum.join()
   end
 
-  defp flip_random_bit(str) do
+  defp flip_random_bit(str) when is_binary(str) do
     len = String.length(str)
     pos = :rand.uniform(len) - 1
     char = String.graphemes(str) |> Enum.at(pos)
@@ -31,7 +32,36 @@ defmodule Fuzzer do
     String.graphemes(str) |> List.replace_at(pos, flipped_char) |> Enum.join()
   end
 
-  defp _mutate(item, n) when is_binary(item) do
+  # Numbers
+  defp flip_random_bit(num) when is_number(num) do
+    random_bit_idx = :rand.uniform(get_bit_width(num)) - 1
+    Bitwise.bxor(num, 1 <<< random_bit_idx)
+  end
+
+  defp get_bit_width(num) when is_number(num) do
+    num
+    |> abs()
+    |> :binary.encode_unsigned()
+    |> byte_size()
+    |> Kernel.*(8)
+  end
+
+  defp flip_all_bits(num) when is_integer(num), do: Bitwise.bnot(num)
+
+  # defp inc(num) when is_integer(num), do: num + 1
+
+  # defp dec(num) when is_integer(num), do: num - 1
+
+  defp div(num) when is_integer(num), do: trunc(num >>> :rand.uniform(get_bit_width(num)))
+
+  defp mult(num) when is_integer(num), do: trunc(num <<< :rand.uniform(get_bit_width(num)))
+
+  defp twos_complement(num) when is_integer(num), do: Bitwise.bnot(num) + 1
+
+  defp generate_num(size), do: :rand.uniform(1 <<< size) - 1
+
+  # Export
+  def mutate(item, n) when is_binary(item) do
     mutators = [
       &delete_random_character/1,
       &insert_random_printable_ascii_character/1,
@@ -43,31 +73,30 @@ defmodule Fuzzer do
     end)
   end
 
-  # TODO, better mutator for numbers maybe
-  defp _mutate(item, n) when is_number(item) do
-    rnum = :rand.uniform()
+  def mutate(item, n) when is_number(item) do
     mutators = [
-      fn x -> x + rnum end,
-      fn x -> x - rnum end,
-      fn x -> x * rnum end,
-      fn x -> x / rnum end
+      # &inc/1,
+      # &dec/1,
+      &div/1,
+      &mult/1,
+      &flip_all_bits/1,
+      &flip_random_bit/1,
+      &twos_complement/1
     ]
+
     Enum.reduce(1..n, item, fn _, acc ->
       Enum.random(mutators).(acc)
     end)
   end
 
-  defp _mutate(_item, _n) do
-    raise("Not implemented")
-  end
-
-  @doc """
-    Mutate input a specified number of times. Prints the result.
-  """
-  @spec mutate(any(), integer()) :: any()
   def mutate(items, n) when is_list(items) do
-    items |> Enum.map(fn x -> _mutate(x, n) end)
+    Enum.map(items, fn x -> mutate(x, n) end)
   end
 
-
+  def gen(type, size) when type in [:number, :string] do
+    case type do
+      :number -> generate_num(32)
+      :string -> for _ <- 1..size, into: "", do: <<Enum.random(32..126)>>
+    end
+  end
 end

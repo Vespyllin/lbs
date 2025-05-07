@@ -3,7 +3,7 @@ defmodule NumberChecker do
     defp state_server(state) do
       receive do
         {:request, requestor_pid} -> send(requestor_pid, {:response, state})
-        id -> state_server([id | state])
+        id -> state_server(state ++ [id])
       end
     end
 
@@ -33,19 +33,30 @@ defmodule NumberChecker do
     :negative
   end
 
-  def check_number(num, thing) do
-    IO.inspect("thing")
-    IO.inspect(thing)
-
-    if num > 0 do
-      :positive
-    else
-      if num < 0 do
-        :negative
+  def fuzz_target(num, state_pid) do
+    try do
+      if num > 0 do
+        send(state_pid, "S-1T")
+        :positive
       else
-        raise "ERR"
-        :zero
+        send(state_pid, "S-1F")
+
+        if num < 0 do
+          send(state_pid, "S-1F-3T")
+
+          if num < -1000 and num > -1050 do
+            send(state_pid, "S-1F-3T-4T")
+            raise "ERR"
+          end
+
+          :negative
+        else
+          send(state_pid, "S-1F-3F")
+          :zero
+        end
       end
+    rescue
+      e -> e
     end
   end
 end
