@@ -2,6 +2,7 @@ defmodule PropEl do
   @max_iter 1000
   @succ_energy 100
   @disc_energy 25
+  @amount_of_mutations 5
 
   defp queue_server(state) do
     receive do
@@ -69,6 +70,7 @@ defmodule PropEl do
     # Generate path hash (TODO: look into sophistication)
     path_hash = Enum.join(path_ids, "/")
 
+    # TODO
     # Check property
     if !p.(res) do
       :bug
@@ -91,8 +93,9 @@ defmodule PropEl do
 
       next_input =
         receive do
-          # TODO: Mutation
-          {:ok, val} -> val
+          # TODO: What is the point of lists of values. Handle multiple inputs?
+          {:ok, val} ->
+            Fuzzer.mutate(val, @amount_of_mutations)
           # Generate randomly
           nil -> nil
         end

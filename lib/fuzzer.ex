@@ -31,11 +31,7 @@ defmodule Fuzzer do
     String.graphemes(str) |> List.replace_at(pos, flipped_char) |> Enum.join()
   end
 
-  @doc """
-    Mutate a string a specified number of times. Prints the result.
-  """
-  @spec mutate(String.t(), integer()) :: any()
-  def mutate(item, n) do
+  defp _mutate(item, n) when is_binary(item) do
     mutators = [
       &delete_random_character/1,
       &insert_random_printable_ascii_character/1,
@@ -46,4 +42,32 @@ defmodule Fuzzer do
       Enum.random(mutators).(acc)
     end)
   end
+
+  # TODO, better mutator for numbers maybe
+  defp _mutate(item, n) when is_number(item) do
+    rnum = :rand.uniform()
+    mutators = [
+      fn x -> x + rnum end,
+      fn x -> x - rnum end,
+      fn x -> x * rnum end,
+      fn x -> x / rnum end
+    ]
+    Enum.reduce(1..n, item, fn _, acc ->
+      Enum.random(mutators).(acc)
+    end)
+  end
+
+  defp _mutate(_item, _n) do
+    raise("Not implemented")
+  end
+
+  @doc """
+    Mutate input a specified number of times. Prints the result.
+  """
+  @spec mutate(any(), integer()) :: any()
+  def mutate(items, n) when is_list(items) do
+    items |> Enum.map(fn x -> _mutate(x, n) end)
+  end
+
+
 end
