@@ -74,7 +74,7 @@ defmodule PropEl do
 
     # Check property
     if !p.(res) do
-      {:bug, iter, path_hash, res}
+      {:bug, iter, path_ids, input, res}
     else
       # Check coverage
       send(coverage_pid, {:check, path_hash, self()})
@@ -110,7 +110,8 @@ defmodule PropEl do
             Enum.map(input_spec, fn type -> Fuzzer.gen(type, @default_input_size) end)
         end
 
-      fuzz_loop(config, iter - 1, IO.inspect(next_input))
+      # fuzz_loop(config, iter - 1, IO.inspect(next_input))
+      fuzz_loop(config, iter - 1, next_input)
     end
   end
 
@@ -124,8 +125,13 @@ defmodule PropEl do
       do: raise("At least 1 parameter must be specified for fuzzing.")
 
     # Instrument fuzzing framework
+    ast =
+      source_file
+      |> File.read!()
+      |> Code.string_to_quoted!()
+
     IO.puts("Injecting fuzzing framework.")
-    mod = Injector.instrument(source_file, fn_name, arity)
+    mod = Injector.instrument(ast, fn_name, arity)
     IO.puts("Fuzzing framework injected.")
 
     # Spawn state servers
@@ -139,9 +145,10 @@ defmodule PropEl do
     IO.puts("Initiating fuzzing loop.")
 
     case fuzz_loop({queue_pid, coverage_pid, mod, input_spec, p}, @max_iter, input) do
-      {:bug, iter, path_hash, res} ->
-        IO.puts("Bug found at iter ##{@max_iter - iter} at #{path_hash}")
+      {:bug, iter, path_ids, input, res} ->
+        IO.puts("Bug found at iter ##{@max_iter - iter} with input #{Enum.join(input, ",")}")
         IO.puts(inspect(res))
+        Blame.blame(ast, path_ids, fn_name, arity)
 
       {:no_bug} ->
         IO.puts("No bugs found.")

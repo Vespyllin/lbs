@@ -1,12 +1,10 @@
 defmodule Injector do
   @fuzz_target :fuzz_target
 
-  def instrument(source_file, fn_name, arity)
+  def instrument(ast, fn_name, arity)
       when is_atom(fn_name) and is_number(arity) do
     [{mod_name, _}] =
-      source_file
-      |> File.read!()
-      |> Code.string_to_quoted!()
+      ast
       |> handle_ast({fn_name, arity})
       |> Code.compile_quoted()
 
@@ -24,8 +22,9 @@ defmodule Injector do
 
       file_name = Path.basename(source_file, ".ex")
       read_res = File.read!(source_file)
+      ast = Code.string_to_quoted!(read_res)
 
-      modified_ast = handle_ast(Code.string_to_quoted!(read_res), {fn_name, arity})
+      modified_ast = handle_ast(ast, {fn_name, arity})
 
       [{mod_name, binary}] = Code.compile_quoted(modified_ast)
       IO.puts("Modified file compiled and loaded into the environment as \"#{mod_name}\".")
@@ -94,43 +93,44 @@ defmodule Injector do
     {:do, {:__block__, meta, handle_mod_members(mod_stmts, fn_data)}}
   end
 
-  defp handle_mod_block({:do, mod_stmts}, fn_data) do
-    {:do, handle_mod_members(mod_stmts, fn_data)}
+  defp handle_mod_block({:do, mod_stmt}, fn_data) do
+    {:do, {:__block__, [], handle_mod_members([mod_stmt], fn_data)}}
   end
 
   defp handle_mod_block(pass, _) do
     pass
   end
 
-  # Handle module components
-  defp handle_mod_members(stmts, fn_data) when is_list(stmts) do
-    hook_ast =
-      quote do
-        defp state_server(state) do
-          receive do
-            {:request, requestor_pid} ->
-              send(requestor_pid, {:response, state})
+  defp gen_hook_ast() do
+    quote do
+      defp state_server(state) do
+        receive do
+          {:request, requestor_pid} ->
+            send(requestor_pid, {:response, state})
 
-            id ->
-              state_server(state ++ [id])
-          end
-        end
-
-        def hook(fuzzed_params) when is_list(fuzzed_params) do
-          state_pid = spawn(fn -> state_server([]) end)
-
-          res = apply(__MODULE__, unquote(@fuzz_target), fuzzed_params ++ [state_pid])
-
-          send(state_pid, {:request, self()})
-
-          receive do
-            {:response, list} -> {res, list}
-          end
+          id ->
+            state_server(state ++ [id])
         end
       end
 
+      def hook(fuzzed_params) when is_list(fuzzed_params) do
+        state_pid = spawn(fn -> state_server([]) end)
+
+        res = apply(__MODULE__, unquote(@fuzz_target), fuzzed_params ++ [state_pid])
+
+        send(state_pid, {:request, self()})
+
+        receive do
+          {:response, list} -> {res, list}
+        end
+      end
+    end
+  end
+
+  # Handle module components
+  defp handle_mod_members(stmts, fn_data) when is_list(stmts) do
     [
-      hook_ast
+      gen_hook_ast()
       | Enum.map(stmts, fn
           {decl_type, meta, fn_decl} when decl_type in [:def, :defp] ->
             {decl_type, meta, handle_fn_def(fn_decl, fn_data)}
@@ -141,7 +141,18 @@ defmodule Injector do
     ]
   end
 
-  defp handle_mod_members(pass, _), do: pass
+  defp handle_mod_members(stmts, fn_data) do
+    [
+      gen_hook_ast()
+      | case stmts do
+          {decl_type, meta, fn_decl} when decl_type in [:def, :defp] ->
+            {decl_type, meta, handle_fn_def(fn_decl, fn_data)}
+
+          other ->
+            other
+        end
+    ]
+  end
 
   # Unravel functions
   defp handle_fn_def([{fn_name, meta, params}, [do: stmt]], {fn_name, arity})
@@ -170,11 +181,11 @@ defmodule Injector do
   end
 
   # Inject feedback code
-  defp traverse_statements(stmts, {ctr, id}, fn_data) when is_list(stmts) do
+  defp traverse_statements(stmts, {_ctr, id}, fn_data) when is_list(stmts) do
     stmts
     |> Enum.with_index()
     |> Enum.map(fn {stmt, idx} ->
-      handle_statement(stmt, {ctr + idx, id}, fn_data)
+      handle_statement(stmt, {idx + 1, id}, fn_data)
     end)
   end
 
@@ -202,12 +213,12 @@ defmodule Injector do
       case clauses do
         [do: do_clause, else: else_clause] ->
           [
-            do: inject_do(do_clause, {ctr + 1, suffix(id, ctr, "T")}, fn_data),
-            else: inject_do(else_clause, {ctr + 1, suffix(id, ctr, "F")}, fn_data)
+            do: inject_do(do_clause, {0, suffix(id, ctr, "T")}, fn_data),
+            else: inject_do(else_clause, {0, suffix(id, ctr, "F")}, fn_data)
           ]
 
         [do: do_clause] ->
-          [do: inject_do(do_clause, {ctr + 1, suffix(id, ctr, "T")}, fn_data)]
+          [do: inject_do(do_clause, {0, suffix(id, ctr, "T")}, fn_data)]
 
         r ->
           raise ArgumentError, message: "UNHANDLED IF CONSTRUCT" <> to_string(r)

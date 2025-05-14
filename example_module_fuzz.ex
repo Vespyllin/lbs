@@ -35,23 +35,25 @@ defmodule NumberChecker do
 
   def fuzz_target(num, state_pid) do
     try do
+      :test
+
       if num > 0 do
-        send(state_pid, "S-1T")
+        send(state_pid, "S-2T")
         :positive
       else
-        send(state_pid, "S-1F")
+        send(state_pid, "S-2F")
 
         if num < 0 do
-          send(state_pid, "S-1F-3T")
+          send(state_pid, "S-2F-1T")
 
           if num < -1000 and num > -1050 do
-            send(state_pid, "S-1F-3T-4T")
-            raise "ERR"
+            send(state_pid, "S-2F-1T-1T")
+            raise "YA FOUND ME"
           end
 
           :negative
         else
-          send(state_pid, "S-1F-3F")
+          send(state_pid, "S-2F-1F")
           :zero
         end
       end

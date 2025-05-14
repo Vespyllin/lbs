@@ -20,6 +20,8 @@ defmodule NumberChecker do
   end
 
   def check_number(num) do
+    :test
+
     if num > 0 do
       :positive
     else
