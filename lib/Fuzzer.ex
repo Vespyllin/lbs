@@ -2,34 +2,28 @@ import Bitwise
 
 defmodule Fuzzer do
   # Strings
-  defp delete_random_character(str) when is_binary(str) do
-    len = String.length(str)
-    pos = :rand.uniform(len - 1)
-    String.graphemes(str) |> List.delete_at(pos) |> Enum.join()
+  def delete_char_at(str, index) when is_binary(str) do
+    String.graphemes(str)
+    |> List.delete_at(index)
+    |> Enum.join()
   end
 
-  defp insert_random_printable_ascii_character(str) when is_binary(str) do
-    # Printable ASCII (space to ~)
-    ascii = Enum.map(32..126, fn e -> <<e>> end)
-    insert_random_chararcter(str, ascii)
+  def insert_char_at(str, index) when is_binary(str) do
+    # Printable ASCII
+    char = <<:rand.uniform(94) + 31>>
+
+    String.graphemes(str)
+    |> List.insert_at(index, char)
+    |> Enum.join()
   end
 
-  defp insert_random_chararcter(str, characters) when is_binary(str) do
-    len = String.length(str)
-    pos = :rand.uniform(len + 1) - 1
-    random_char = Enum.random(characters)
-    String.graphemes(str) |> List.insert_at(pos, random_char) |> Enum.join()
-  end
+  def flip_char_at(str, index) when is_binary(str) do
+    # Printable ASCII 
+    random_char = <<:rand.uniform(94) + 31>>
 
-  defp flip_random_bit(str) when is_binary(str) do
-    len = String.length(str)
-    pos = :rand.uniform(len) - 1
-    char = String.graphemes(str) |> Enum.at(pos)
-    <<char_byte::utf8>> = char
-    mask = 1 <<< (:rand.uniform(8) - 1)
-    flipped_char_byte = bxor(char_byte, mask)
-    flipped_char = <<flipped_char_byte::utf8>>
-    String.graphemes(str) |> List.replace_at(pos, flipped_char) |> Enum.join()
+    String.graphemes(str)
+    |> List.replace_at(index, random_char)
+    |> Enum.join()
   end
 
   # Numbers
@@ -48,10 +42,6 @@ defmodule Fuzzer do
 
   defp flip_all_bits(num) when is_integer(num), do: Bitwise.bnot(num)
 
-  # defp inc(num) when is_integer(num), do: num + 1
-
-  # defp dec(num) when is_integer(num), do: num - 1
-
   defp div(num) when is_integer(num), do: trunc(num >>> :rand.uniform(get_bit_width(num)))
 
   defp mult(num) when is_integer(num), do: trunc(num <<< :rand.uniform(get_bit_width(num)))
@@ -61,19 +51,42 @@ defmodule Fuzzer do
   defp generate_num(size), do: :rand.uniform(1 <<< size) - 1
 
   # Export
-  def mutate(item, n) when is_binary(item) do
-    mutators = [
-      &delete_random_character/1,
-      &insert_random_printable_ascii_character/1,
-      &flip_random_bit/1
-    ]
+  def mutate(input, n, mask) when is_binary(input) do
+    mutators = %{
+      delete: &delete_char_at/2,
+      insert: &insert_char_at/2,
+      flip: &flip_char_at/2
+    }
 
-    Enum.reduce(1..n, item, fn _, acc ->
-      Enum.random(mutators).(acc)
+    Enum.reduce(1..n, input, fn _, acc ->
+      graphemes = String.graphemes(acc)
+
+      # Get all valid indices with their allowed mutations
+      valid_indices =
+        Enum.with_index(graphemes)
+        |> Enum.filter(fn {_, idx} ->
+          mask == nil || (idx < length(mask) && length(Enum.at(mask, idx)) > 0)
+        end)
+
+      if valid_indices == [] do
+        # No valid mutations possible
+        acc
+      else
+        {_, index} = Enum.random(valid_indices)
+
+        # Get allowed mutations for this index (or all if mask is nil)
+        allowed_mutations = if mask, do: Enum.at(mask, index), else: [:delete, :insert, :flip]
+
+        # Choose a random allowed mutator
+        mutator_key = Enum.random(allowed_mutations)
+        mutator = Map.get(mutators, mutator_key)
+
+        mutator.(acc, index)
+      end
     end)
   end
 
-  def mutate(item, n) when is_number(item) do
+  def mutate(item, n, _mask) when is_number(item) do
     mutators = [
       # &inc/1,
       # &dec/1,
@@ -89,15 +102,10 @@ defmodule Fuzzer do
     end)
   end
 
-  def mutate(items, n) when is_list(items) do
-    Enum.map(items, fn x -> mutate(x, n) end)
-  end
-
-  def gen(type_or_value, size) do
-    case type_or_value do
-      :fuzz_number -> generate_num(32)
-      :fuzz_string -> for _ <- 1..size, into: "", do: <<Enum.random(32..126)>>
-      pass -> pass
+  def gen(gen_type) do
+    case gen_type do
+      :fuzz_number -> generate_num(2 ** 64)
+      :fuzz_string -> for _ <- 1..8, into: "", do: <<Enum.random(32..126)>>
     end
   end
 end

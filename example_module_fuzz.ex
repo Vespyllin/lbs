@@ -18,45 +18,34 @@ defmodule NumberChecker do
     end
   )
 
-  @moduledoc "A module that checks if a number is positive, negative, or zero.\n"
-  @doc "Checks the given number and returns a descriptive string.\n"
-  def not_check_number() do
-    :positive
-  end
+  def check_number(num) do
+    :test
 
-  def check_number() do
-    :positive
-  end
+    if num > 0 do
+      :positive
+    else
+      if num < 0 do
+        :test
 
-  def check_number(-2, -3) do
-    :positive
-    :negative
-  end
-
-  def fuzz_target(num, state_pid) do
-    try do
-      :test
-
-      if num > 0 do
-        send(state_pid, "S-2T")
-        :positive
-      else
-        send(state_pid, "S-2F")
-
-        if num < 0 do
-          send(state_pid, "S-2F-1T")
-
-          if num < -1000 and num > -1050 do
-            send(state_pid, "S-2F-1T-1T")
-            raise "YA FOUND ME"
-          end
-
-          :negative
-        else
-          send(state_pid, "S-2F-1F")
-          :zero
+        if num < -1000 and num > -1050 do
+          raise "YA FOUND ME"
         end
+
+        :negative
+      else
+        :zero
       end
+    end
+  end
+
+  def fuzz_target(str, state_pid) do
+    try do
+      if "ab" in String.graphemes(str) do
+        send(state_pid, "S-1T")
+        raise "A"
+      end
+
+      :good
     rescue
       e -> e
     end

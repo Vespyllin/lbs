@@ -3,11 +3,14 @@ Code.require_file("./lib/Fuzzer.ex")
 Code.require_file("./lib/Blame.ex")
 Code.require_file("./lib/PropEl.ex")
 
-PropEl.handle("./example_module.ex", :check_number, 1, [:fuzz_number], fn x ->
-  x in [:positive, :negative, :zero]
+# PropEl.handle("./example_module.ex", :check_number, 1, [:fuzz_number], fn x ->
+#   x in [:positive, :negative, :zero]
+# end)
+PropEl.handle("./example_module.ex", :check_string, 1, :fuzz_string, fn res, _input ->
+  res in [:good]
 end)
 
-# Injector._instrument("./example_module.ex", :check_number, 1, "./", true)
+# Injector._instrument("./example_module.ex", :check_string, 1, "./", true)
 # Code.require_file("./example_module_fuzz.ex")
 
 # read_res = File.read!("./example_module.ex")

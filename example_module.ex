@@ -1,24 +1,4 @@
 defmodule NumberChecker do
-  @moduledoc """
-  A module that checks if a number is positive, negative, or zero.
-  """
-
-  @doc """
-  Checks the given number and returns a descriptive string.
-  """
-  def not_check_number() do
-    :positive
-  end
-
-  def check_number() do
-    :positive
-  end
-
-  def check_number(-2, -3) do
-    :positive
-    :negative
-  end
-
   def check_number(num) do
     :test
 
@@ -26,6 +6,8 @@ defmodule NumberChecker do
       :positive
     else
       if num < 0 do
+        :test
+
         if num < -1000 and num > -1050 do
           raise "YA FOUND ME"
         end
@@ -35,5 +17,19 @@ defmodule NumberChecker do
         :zero
       end
     end
+  end
+
+  def check_string(str) do
+    if "a" in String.graphemes(str) do
+      if "b" in String.graphemes(str) do
+        :good
+      end
+
+      if "c" in String.graphemes(str) do
+        raise "AB"
+      end
+    end
+
+    :good
   end
 end

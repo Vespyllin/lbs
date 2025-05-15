@@ -33,9 +33,13 @@ defmodule Blame do
         IO.puts(
           String.duplicate(" ", depth * 2) <>
             highlight(
-              "if #{Macro.to_string(condition)} do #" <> true_id,
-              cause_true or cause_false,
-              if(cause_false, do: :blue, else: :red)
+              "if #{Macro.to_string(condition)} do #" <>
+                true_id <> inspect(cause_true) <> inspect(cause_false),
+              true,
+              if(not (cause_false or cause_true),
+                do: :gray,
+                else: if(cause_false, do: :blue, else: :red)
+              )
             )
         )
 
@@ -45,8 +49,8 @@ defmodule Blame do
           String.duplicate(" ", depth * 2) <>
             highlight(
               "else #" <> false_id,
-              cause_true or cause_false,
-              if(cause_true, do: :gray, else: :red)
+              true,
+              if(not cause_false, do: :gray, else: :red)
             )
         )
 
@@ -54,18 +58,32 @@ defmodule Blame do
 
         IO.puts(
           String.duplicate(" ", depth * 2) <>
-            highlight("end", cause_true or cause_false, if(cause_false, do: :blue, else: :red))
+            highlight(
+              "end",
+              true,
+              if(not (cause_false or cause_true),
+                do: :gray,
+                else: if(cause_false, do: :blue, else: :red)
+              )
+            )
         )
 
       [do: do_clause] ->
         IO.puts(
           String.duplicate(" ", depth * 2) <>
-            highlight("if #{Macro.to_string(condition)} do #" <> true_id, cause_true)
+            highlight(
+              "if #{Macro.to_string(condition)} do #" <> true_id,
+              true,
+              if(cause_true, do: :red, else: :gray)
+            )
         )
 
         traverse(do_clause, {depth + 1, 0, true_id}, config)
 
-        IO.puts(String.duplicate(" ", depth * 2) <> highlight("end", cause_true))
+        IO.puts(
+          String.duplicate(" ", depth * 2) <>
+            highlight("end", true, if(cause_true, do: :red, else: :gray))
+        )
     end
   end
 
