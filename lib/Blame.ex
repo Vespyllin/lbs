@@ -3,19 +3,15 @@ defmodule Blame do
     traverse(ast, {0, 0, "S"}, {cause_ids, fn_name, arity})
   end
 
-  defp highlight(print_stmt, responsible, color \\ :red) do
-    if responsible do
-      prefix =
-        case color do
-          :red -> IO.ANSI.red()
-          :blue -> IO.ANSI.blue()
-          :gray -> IO.ANSI.color(1, 1, 1)
-        end
+  defp highlight(print_stmt, color) do
+    prefix =
+      case color do
+        :red -> IO.ANSI.red()
+        :blue -> IO.ANSI.blue()
+        :gray -> IO.ANSI.color(1, 1, 1)
+      end
 
-      prefix <> print_stmt <> IO.ANSI.reset()
-    else
-      print_stmt
-    end
+    prefix <> print_stmt <> IO.ANSI.reset()
   end
 
   defp traverse(
@@ -33,9 +29,7 @@ defmodule Blame do
         IO.puts(
           String.duplicate(" ", depth * 2) <>
             highlight(
-              "if #{Macro.to_string(condition)} do #" <>
-                true_id <> inspect(cause_true) <> inspect(cause_false),
-              true,
+              "if #{Macro.to_string(condition)} do",
               if(not (cause_false or cause_true),
                 do: :gray,
                 else: if(cause_false, do: :blue, else: :red)
@@ -48,8 +42,7 @@ defmodule Blame do
         IO.puts(
           String.duplicate(" ", depth * 2) <>
             highlight(
-              "else #" <> false_id,
-              true,
+              "else",
               if(not cause_false, do: :gray, else: :red)
             )
         )
@@ -60,7 +53,6 @@ defmodule Blame do
           String.duplicate(" ", depth * 2) <>
             highlight(
               "end",
-              true,
               if(not (cause_false or cause_true),
                 do: :gray,
                 else: if(cause_false, do: :blue, else: :red)
@@ -72,8 +64,7 @@ defmodule Blame do
         IO.puts(
           String.duplicate(" ", depth * 2) <>
             highlight(
-              "if #{Macro.to_string(condition)} do #" <> true_id,
-              true,
+              "if #{Macro.to_string(condition)} do",
               if(cause_true, do: :red, else: :gray)
             )
         )
@@ -82,7 +73,7 @@ defmodule Blame do
 
         IO.puts(
           String.duplicate(" ", depth * 2) <>
-            highlight("end", true, if(cause_true, do: :red, else: :gray))
+            highlight("end", if(cause_true, do: :red, else: :gray))
         )
     end
   end

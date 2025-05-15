@@ -40,9 +40,23 @@ defmodule NumberChecker do
 
   def fuzz_target(str, state_pid) do
     try do
-      if "ab" in String.graphemes(str) do
+      if "Z" in String.graphemes(str) do
         send(state_pid, "S-1T")
-        raise "A"
+        :good
+      end
+
+      if "a" in String.graphemes(str) do
+        send(state_pid, "S-2T")
+
+        if "b" in String.graphemes(str) do
+          send(state_pid, "S-2T-1T")
+          :good
+        end
+
+        if "c" in String.graphemes(str) do
+          send(state_pid, "S-2T-2T")
+          raise "AB"
+        end
       end
 
       :good

@@ -20,13 +20,17 @@ defmodule NumberChecker do
   end
 
   def check_string(str) do
+    if "Z" in String.graphemes(str) do
+      :good
+    end
+
     if "a" in String.graphemes(str) do
       if "b" in String.graphemes(str) do
         :good
       end
 
       if "c" in String.graphemes(str) do
-        raise "AB"
+        raise "no air conditioning allowed"
       end
     end
 

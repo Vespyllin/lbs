@@ -1,24 +1,27 @@
 defmodule PropEl do
-  @succ_energy 2500
-  @disc_energy 500
-  @mutation_count 50
+  @succ_energy 100_000
+  @disc_energy 1000
+  @mutation_count 1
   @fuzz_atoms [:fuzz_number, :fuzz_string]
 
   defp queue_server(state) do
     receive do
       {:successful, inputs, mask, energy} ->
-        new_state = %{state | qsucc: state.qsucc ++ [{inputs, mask, energy}]}
+        new_state = %{state | qsucc: [{inputs, mask, energy}] ++ state.qsucc}
         queue_server(new_state)
 
       {:discard, inputs, energy} ->
-        new_state = %{state | qdisc: state.qdisc ++ [{inputs, energy}]}
+        new_state = %{state | qdisc: [{inputs, energy}] ++ state.qdisc}
         queue_server(new_state)
+
+      {:all, caller} ->
+        send(caller, {:ok, state})
 
       {:dequeue, caller} ->
         case state.qsucc do
           [{inputs, mask, energy} | rest] when energy > 1 ->
             send(caller, {:ok, inputs, mask})
-            queue_server(%{state | qsucc: [{inputs, mask, energy - 1} | rest]})
+            queue_server(%{state | qsucc: rest ++ [{inputs, mask, energy - 1}]})
 
           [{inputs, mask, 1} | rest] ->
             send(caller, {:ok, inputs, mask})
@@ -28,7 +31,7 @@ defmodule PropEl do
             case state.qdisc do
               [{inputs, energy} | rest] when energy > 1 ->
                 send(caller, {:ok, inputs, nil})
-                queue_server(%{state | qdisc: [{inputs, energy - 1} | rest]})
+                queue_server(%{state | qdisc: rest ++ [{inputs, energy - 1}]})
 
               [{inputs, 1} | rest] ->
                 send(caller, {:ok, inputs, nil})
@@ -56,6 +59,9 @@ defmodule PropEl do
         new_state = MapSet.put(state, id)
         coverage_server(new_state)
 
+      {:all, caller} ->
+        send(caller, {:ok, state})
+
       :stop ->
         :ok
     end
@@ -75,7 +81,7 @@ defmodule PropEl do
   end
 
   defp compute_mask(mod, path_ids, input) when is_binary(input) do
-    for index <- 0..String.length(input) do
+    for index <- 0..(String.length(input) - 1) do
       mutation_res = [
         flip: Fuzzer.flip_char_at(input, index),
         insert: Fuzzer.insert_char_at(input, index),
@@ -104,8 +110,8 @@ defmodule PropEl do
     input =
       receive do
         # Mutate only those inputs we're fuzzing
-        {:ok, recv_input, mask} ->
-          Fuzzer.mutate(recv_input, @mutation_count, mask)
+        {:ok, input_seed, mask} ->
+          Fuzzer.mutate(input_seed, @mutation_count, mask)
 
         # Generate randomly
         nil ->
@@ -122,18 +128,22 @@ defmodule PropEl do
     if !p.(res, input) do
       {:bug, iter, path_ids, input, res}
     else
-      # Check coverage
-      send(coverage_pid, {:check, path_hash, self()})
+      # Ignore seeds that don't hit any branches
+      if(length(path_ids) > 0) do
+        # Check coverage
+        send(coverage_pid, {:check, path_hash, self()})
 
-      # Queue accordingly
-      receive do
-        :new ->
-          mask = compute_mask(mod, path_ids, input)
-          send(queue_pid, {:successful, input, mask, @succ_energy})
-          send(coverage_pid, {:submit, path_hash})
+        # Queue accordingly
+        receive do
+          :new ->
+            mask = compute_mask(mod, path_ids, input)
 
-        :seen ->
-          send(queue_pid, {:discard, input, @disc_energy})
+            send(queue_pid, {:successful, input, mask, @succ_energy})
+            send(coverage_pid, {:submit, path_hash})
+
+          :seen ->
+            send(queue_pid, {:discard, input, @disc_energy})
+        end
       end
 
       fuzz_loop(config, iter - 1)
@@ -174,20 +184,48 @@ defmodule PropEl do
     coverage_pid = spawn(fn -> coverage_server(MapSet.new()) end)
 
     # Return results
-    IO.puts("Initiating fuzzing loop...")
+    IO.puts("Initiating fuzzing loop...\n")
     res = fuzz_loop({queue_pid, coverage_pid, mod, input_type, p})
 
     case res do
       {:bug, iter, path_ids, input, res} ->
         IO.puts(
-          "Bug found at iter ##{if iter < 0, do: 0 - iter, else: max_iter - iter} with input \"#{input}\"."
+          "Bug found at iter ##{if iter < 0, do: -1 - iter, else: max_iter - iter} with input " <>
+            IO.ANSI.blue() <> inspect(input) <> IO.ANSI.reset() <> " yielding result:"
         )
 
-        IO.puts(inspect(res))
+        IO.puts(IO.ANSI.blue() <> inspect(res) <> IO.ANSI.reset())
+
+        IO.puts("\n===== Traversed Branches =====")
         Blame.blame(ast, path_ids, fn_name, arity)
 
       {:no_bug} ->
         IO.puts("No bugs found after #{max_iter} iterations.")
     end
+  end
+
+  def highlight_mask(masks, string) do
+    string
+    |> String.graphemes()
+    |> Enum.with_index()
+    |> Enum.map(fn {char, idx} ->
+      # Default to empty list if mask not present
+      mask = Enum.at(masks, idx, [])
+
+      if length(mask) < 3 do
+        IO.ANSI.green() <> char <> IO.ANSI.reset()
+      else
+        char
+      end
+    end)
+    |> Enum.join()
+    |> IO.puts()
+
+    masks
+    |> Enum.map(fn mask ->
+      if length(mask) < 3 do
+        IO.inspect(mask)
+      end
+    end)
   end
 end
