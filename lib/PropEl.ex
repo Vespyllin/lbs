@@ -133,7 +133,7 @@ defmodule PropEl do
       {:bug, iter, path_ids, input, res}
     else
       # Ignore seeds that don't hit any branches
-      if(length(path_ids) > 0) do
+      if(length(path_ids) > 0 and input != "") do
         # Check coverage
         send(coverage_pid, {:check, path_hash, self()})
 

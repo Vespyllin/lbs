@@ -49,9 +49,9 @@ defmodule NumberChecker do
 
   def test3(param) do
     cond do
-      param > 10 -> :a
-      param < 5 -> :b
-      true -> :c
+      String.length(param) < 18 -> :a
+      String.length(param) > 20 -> :a
+      true -> :b
     end
   end
 
@@ -63,7 +63,7 @@ defmodule NumberChecker do
     end
   end
 
-  def test(param) do
+  def test5(param) do
     :testline
 
     with {:ok, a} <- param,
@@ -72,6 +72,20 @@ defmodule NumberChecker do
     else
       {:error, _reason} -> :bam
       {:isok, _reason} -> :wow
+    end
+  end
+
+  def test(param) do
+    if(true) do
+      :a
+    else
+      :b
+    end
+
+    unless false do
+      :c
+    else
+      :d
     end
   end
 end

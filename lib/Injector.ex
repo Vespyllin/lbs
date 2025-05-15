@@ -209,36 +209,24 @@ defmodule Injector do
     "#{id}-#{ctr}#{tag}"
   end
 
-  defp handle_statement({:if, meta, [cond_stmt, clauses]}, {ctr, id}) do
+  # Injection Sites
+  defp handle_statement({cond_atom, meta, [cond_stmt, clauses]}, {ctr, id})
+       when cond_atom in [:if, :unless] do
+    tag_prefix = if(cond_atom == :unless, do: "U", else: "")
+
     injected_clauses =
       case clauses do
         [do: do_clause, else: else_clause] ->
           [
-            do: inject_do(do_clause, {0, suffix(id, ctr, "T")}),
-            else: inject_do(else_clause, {0, suffix(id, ctr, "F")})
+            do: inject_do(do_clause, {0, suffix(id, ctr, tag_prefix <> "T")}),
+            else: inject_do(else_clause, {0, suffix(id, ctr, tag_prefix <> "F")})
           ]
 
         [do: do_clause] ->
-          [do: inject_do(do_clause, {0, suffix(id, ctr, "T")})]
+          [do: inject_do(do_clause, {0, suffix(id, ctr, tag_prefix <> "T")})]
       end
 
-    {:if, meta, [cond_stmt, injected_clauses]}
-  end
-
-  defp handle_statement({:unless, meta, [cond_stmt, clauses]}, {ctr, id}) do
-    injected_clauses =
-      case clauses do
-        [do: do_clause, else: else_clause] ->
-          [
-            do: inject_do(do_clause, {0, suffix(id, ctr, "UT")}),
-            else: inject_do(else_clause, {0, suffix(id, ctr, "UF")})
-          ]
-
-        [do: do_clause] ->
-          [do: inject_do(do_clause, {0, suffix(id, ctr, "UT")})]
-      end
-
-    {:if, meta, [cond_stmt, injected_clauses]}
+    {cond_atom, meta, [cond_stmt, injected_clauses]}
   end
 
   defp handle_statement({:with, meta, matchers_and_fallbacks}, {ctr, id}) do
@@ -294,10 +282,11 @@ defmodule Injector do
     {:->, meta, [matcher, inject_do(clause, {ctr, id})]}
   end
 
-  defp handle_statement(pass, _tracking_data) do
+  defp handle_statement(pass, _) do
     pass
   end
 
+  # Injection Logic
   defp inject_do({:__block__, meta, stmts}, tracking_data = {_ctr, id}) do
     state_pid_var = Macro.var(:state_pid, nil)
 

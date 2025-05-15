@@ -52,38 +52,48 @@ defmodule Fuzzer do
 
   # Export
   def mutate(input, n, mask) when is_binary(input) do
+    full_mask = [:flip, :insert, :delete]
+
     mutators = %{
-      delete: &delete_char_at/2,
+      flip: &flip_char_at/2,
       insert: &insert_char_at/2,
-      flip: &flip_char_at/2
+      delete: &delete_char_at/2
     }
 
-    Enum.reduce(1..n, input, fn _, acc ->
-      graphemes = String.graphemes(acc)
+    {mutated_input, _} =
+      Enum.reduce(1..n, {input, mask}, fn _, acc ->
+        {seed, seed_mask} = acc
+        graphemes = String.graphemes(seed)
 
-      # Get all valid indices with their allowed mutations
-      valid_indices =
-        Enum.with_index(graphemes)
-        |> Enum.filter(fn {_, idx} ->
-          mask == nil || (idx < length(mask) && length(Enum.at(mask, idx)) > 0)
-        end)
+        # Get all valid indices with their allowed mutations
+        valid_indices =
+          Enum.with_index(graphemes)
+          |> Enum.filter(fn {_, idx} ->
+            mask == nil || (idx < length(mask) && length(Enum.at(mask, idx)) > 0)
+          end)
 
-      if valid_indices == [] do
-        # No valid mutations possible
-        acc
-      else
-        {_, index} = Enum.random(valid_indices)
+        if valid_indices == [] do
+          # No valid mutations possible
+          acc
+        else
+          {_, index} = Enum.random(valid_indices)
 
-        # Get allowed mutations for this index (or all if mask is nil)
-        allowed_mutations = if mask, do: Enum.at(mask, index), else: [:delete, :insert, :flip]
+          # Get allowed mutations for this index (or all if mask is nil)
+          allowed_mutations = if mask, do: Enum.at(mask, index), else: full_mask
 
-        # Choose a random allowed mutator
-        mutator_key = Enum.random(allowed_mutations)
-        mutator = Map.get(mutators, mutator_key)
+          # Choose a random allowed mutator
+          mutator_key = Enum.random(allowed_mutations)
+          mutator = Map.get(mutators, mutator_key)
 
-        mutator.(acc, index)
-      end
-    end)
+          mutated_seed = mutator.(seed, index)
+
+          mutated_mask = if mask, do: List.insert_at(seed_mask, index, full_mask), else: nil
+
+          {mutated_seed, mutated_mask}
+        end
+      end)
+
+    mutated_input
   end
 
   def mutate(item, n, _mask) when is_number(item) do
