@@ -92,6 +92,120 @@ defmodule Blame do
   end
 
   defp traverse(
+         {:with, _meta, matchers_and_fallbacks},
+         {depth, ctr, acc},
+         config = {cause_ids, _, _}
+       ) do
+    do_id = suffix(acc, ctr + 1, "WT")
+
+    else_ids =
+      matchers_and_fallbacks
+      |> Enum.map(fn matcher_or_fallback ->
+        case matcher_or_fallback do
+          [do: _do_clause, else: else_branches] ->
+            else_branches
+            |> Enum.with_index()
+            |> Enum.map(fn {_branch, idx} ->
+              suffix(acc, ctr + 1, "WF" <> to_string(idx + 1))
+            end)
+
+          _ ->
+            nil
+        end
+      end)
+      |> Enum.filter(fn x -> x != nil end)
+      |> List.flatten()
+
+    do_cause = do_id in cause_ids
+    else_cause = Enum.any?(else_ids, fn x -> x in cause_ids end)
+
+    if(do_cause) do
+      IO.write(IO.ANSI.red())
+    else
+      if(else_cause) do
+        IO.write(IO.ANSI.blue())
+      end
+    end
+
+    IO.puts(pad(depth) <> "with")
+
+    matchers_and_fallbacks
+    |> Enum.map(fn matcher_or_fallback ->
+      case matcher_or_fallback do
+        {:<-, _meta, [left, right]} ->
+          IO.puts(pad(depth + 1) <> "#{Macro.to_string(left)} <- #{Macro.to_string(right)}")
+
+        [do: do_clause] ->
+          IO.write(IO.ANSI.reset())
+
+          if(do_cause) do
+            IO.write(IO.ANSI.red())
+          end
+
+          IO.puts(pad(depth) <> "do")
+          IO.write(IO.ANSI.reset())
+
+          traverse(do_clause, {depth + 1, 0, acc}, config)
+
+        [do: do_clause, else: else_branches] ->
+          IO.puts(pad(depth) <> "do")
+          IO.write(IO.ANSI.reset())
+
+          if(else_cause) do
+            IO.write(IO.ANSI.color(1, 1, 1))
+          end
+
+          traverse(do_clause, {depth + 1, 0, acc}, config)
+
+          IO.write(IO.ANSI.reset())
+
+          if(do_cause) do
+            IO.write(IO.ANSI.color(1, 1, 1))
+          else
+            if else_cause do
+              IO.write(IO.ANSI.blue())
+            end
+          end
+
+          IO.puts(pad(depth) <> "else")
+
+          else_branches
+          |> Enum.with_index()
+          |> Enum.map(fn {branch, idx} ->
+            branch_id = suffix(acc, ctr + 1, "WF" <> to_string(idx + 1))
+
+            IO.write(IO.ANSI.reset())
+
+            if branch_id in cause_ids do
+              IO.write(IO.ANSI.red())
+            else
+              if else_cause do
+                IO.write(IO.ANSI.color(1, 1, 1))
+              end
+            end
+
+            traverse(branch, {depth + 1, 0, acc}, config)
+
+            if branch_id in cause_ids do
+              IO.write(IO.ANSI.reset())
+            end
+          end)
+      end
+    end)
+
+    if(do_cause) do
+      IO.write(IO.ANSI.red())
+    else
+      if else_cause do
+        IO.write(IO.ANSI.blue())
+      end
+    end
+
+    IO.puts(pad(depth) <> "end")
+    IO.write(IO.ANSI.reset())
+  end
+
+  defp traverse(
          {:cond, _meta, [[{:do, branches}]]},
          {depth, ctr, acc},
          config = {cause_ids, _, _}
@@ -99,7 +213,7 @@ defmodule Blame do
     branch_ids =
       branches
       |> Enum.with_index()
-      |> Enum.map(fn {branch, idx} ->
+      |> Enum.map(fn {_branch, idx} ->
         suffix(acc, ctr + 1, "O" <> to_string(idx + 1))
       end)
 
@@ -143,7 +257,7 @@ defmodule Blame do
     branch_ids =
       branches
       |> Enum.with_index()
-      |> Enum.map(fn {branch, idx} ->
+      |> Enum.map(fn {_branch, idx} ->
         suffix(acc, ctr + 1, "C" <> to_string(idx + 1))
       end)
 
@@ -179,7 +293,7 @@ defmodule Blame do
     IO.write(IO.ANSI.reset())
   end
 
-  defp traverse({:->, _meta, [[matcher], clause]}, {depth, ctr, acc}, config = {cause_ids, _, _}) do
+  defp traverse({:->, _meta, [[matcher], clause]}, {depth, ctr, acc}, config) do
     IO.puts(
       pad(depth) <>
         Macro.to_string(matcher) <> " -> "

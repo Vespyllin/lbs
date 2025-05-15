@@ -202,10 +202,12 @@ defmodule PropEl do
             " yielding result:"
         )
 
-        IO.puts(IO.ANSI.blue() <> inspect(res) <> IO.ANSI.reset())
+        IO.puts(IO.ANSI.blue() <> inspect(res) <> IO.ANSI.reset() <> "\n")
 
-        IO.puts("\n===== Traversed Branches =====")
-        Blame.blame(ast, path_ids, fn_name, arity)
+        if(length(path_ids) > 0) do
+          IO.puts("===== Traversed Branches =====")
+          Blame.blame(ast, path_ids, fn_name, arity)
+        end
 
       {:no_bug} ->
         IO.puts("No bugs found after #{max_iter} iterations.")

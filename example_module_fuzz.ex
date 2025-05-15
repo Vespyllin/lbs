@@ -82,42 +82,40 @@ defmodule NumberChecker do
     end
   end
 
-  def test5(param) do
-    :testline
-
-    with {:ok, a} <- param,
-         {:ok, _b} <- a do
-      :voom
-    else
-      {:error, _reason} -> :bam
-      {:isok, _reason} -> :wow
-    end
-  end
-
   def fuzz_target(param, state_pid) do
     try do
-      if true do
-        send(state_pid, "S-1T")
-        :a
-      else
-        send(state_pid, "S-1F")
-        :b
-      end
+      :testline
 
-      unless false do
-        send(state_pid, "S-2UT")
-        :c
+      with {:no, _y} <- param do
+        send(state_pid, "S-2WT")
+        raise "BAD"
       else
-        send(state_pid, "S-2UF")
-        :d
+        {_x} ->
+          send(state_pid, "S-2WF1")
+          "GOOD"
+
+        {:isok, _reason} ->
+          send(state_pid, "S-2WF2")
+          :wow
       end
     rescue
       e -> e
     end
   end
 
+  def test5(param) do
+    :testline
+
+    with {:no, _y} <- param do
+      raise "BAD"
+    else
+      {_x} -> "GOOD"
+      {:isok, _reason} -> :wow
+    end
+  end
+
   def test param do
-    if true do
+    if param != nil do
       :a
     else
       :b

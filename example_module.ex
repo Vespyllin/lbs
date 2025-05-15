@@ -66,17 +66,16 @@ defmodule NumberChecker do
   def test5(param) do
     :testline
 
-    with {:ok, a} <- param,
-         {:ok, _b} <- a do
-      :voom
+    with {:no, _y} <- param do
+      raise "BAD"
     else
-      {:error, _reason} -> :bam
+      _x -> "GOOD"
       {:isok, _reason} -> :wow
     end
   end
 
   def test(param) do
-    if(true) do
+    if param != nil do
       :a
     else
       :b
