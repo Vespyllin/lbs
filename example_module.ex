@@ -32,6 +32,46 @@ defmodule NumberChecker do
       end
     end
 
+    check_string(str)
     :good
+  end
+
+  def test2(param) do
+    case param do
+      n when is_number(n) ->
+        :num
+        :num2
+
+      _s ->
+        :str
+    end
+  end
+
+  def test3(param) do
+    cond do
+      param > 10 -> :a
+      param < 5 -> :b
+      true -> :c
+    end
+  end
+
+  def test4(param) do
+    unless param do
+      :a
+    else
+      :b
+    end
+  end
+
+  def test(param) do
+    :testline
+
+    with {:ok, a} <- param,
+         {:ok, _b} <- a do
+      :voom
+    else
+      {:error, _reason} -> :bam
+      {:isok, _reason} -> :wow
+    end
   end
 end

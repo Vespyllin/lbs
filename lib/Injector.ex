@@ -129,16 +129,23 @@ defmodule Injector do
 
   # Handle module components
   defp handle_mod_members(stmts, fn_data) when is_list(stmts) do
-    [
-      gen_hook_ast()
-      | Enum.map(stmts, fn
-          {decl_type, meta, fn_decl} when decl_type in [:def, :defp] ->
-            {decl_type, meta, handle_fn_def(fn_decl, fn_data)}
+    ([
+       gen_hook_ast()
+     ] ++
+       Enum.map(stmts, fn
+         {decl_type, meta, fn_decl} when decl_type in [:def, :defp] ->
+           case handle_fn_def(fn_decl, fn_data) do
+             {:hit, modified_fn} ->
+               [{decl_type, meta, modified_fn}, {decl_type, meta, fn_decl}]
 
-          other ->
-            other
-        end)
-    ]
+             {:miss, _} ->
+               {decl_type, meta, fn_decl}
+           end
+
+         other ->
+           other
+       end))
+    |> List.flatten()
   end
 
   defp handle_mod_members(stmts, fn_data) do
@@ -157,7 +164,7 @@ defmodule Injector do
   # Unravel functions
   defp handle_fn_def([{fn_name, meta, params}, [do: stmt]], {fn_name, arity})
        when length(params) == arity do
-    new_stmts = traverse_statements(stmt, {0, "S"}, {fn_name, arity})
+    new_stmts = traverse_statements(stmt, {0, "S"})
 
     modified_body =
       quote do
@@ -170,68 +177,128 @@ defmodule Injector do
 
     state_pid_var = Macro.var(if(new_stmts == stmt, do: :_state_pid, else: :state_pid), nil)
 
-    [
-      {@fuzz_target, meta, params ++ [state_pid_var]},
-      [do: {:__block__, meta, [modified_body]}]
-    ]
+    {:hit,
+     [
+       {@fuzz_target, meta, params ++ [state_pid_var]},
+       [do: {:__block__, meta, [modified_body]}]
+     ]}
   end
 
   defp handle_fn_def(pass, _) do
-    pass
+    {:miss, pass}
   end
 
   # Inject feedback code
-  defp traverse_statements(stmts, {_ctr, id}, fn_data) when is_list(stmts) do
+  defp traverse_statements(stmts, {_ctr, id}) when is_list(stmts) do
     stmts
     |> Enum.with_index()
     |> Enum.map(fn {stmt, idx} ->
-      handle_statement(stmt, {idx + 1, id}, fn_data)
+      handle_statement(stmt, {idx + 1, id})
     end)
   end
 
-  defp traverse_statements({:__block__, meta, stmts}, tracking_data, fn_data) do
-    {:__block__, meta, traverse_statements(stmts, tracking_data, fn_data)}
+  defp traverse_statements({:__block__, meta, stmts}, tracking_data) do
+    {:__block__, meta, traverse_statements(stmts, tracking_data)}
   end
 
-  defp traverse_statements(pass, {ctr, id}, fn_data) do
-    handle_statement(pass, {ctr + 1, id}, fn_data)
+  defp traverse_statements(pass, {ctr, id}) do
+    handle_statement(pass, {ctr + 1, id})
   end
 
   defp suffix(id, ctr, tag) do
     "#{id}-#{ctr}#{tag}"
   end
 
-  # Function call - change recursive calls to match new fuzzed fn
-  defp handle_statement({fn_name, meta, params}, _tracking_data, {fn_name, arity})
-       when length(params) == arity do
-    {@fuzz_target, meta, params ++ [Macro.var(:state_pid, nil)]}
-  end
-
-  # If stmt
-  defp handle_statement({:if, meta, [cond_stmt, clauses]}, {ctr, id}, fn_data) do
+  defp handle_statement({:if, meta, [cond_stmt, clauses]}, {ctr, id}) do
     injected_clauses =
       case clauses do
         [do: do_clause, else: else_clause] ->
           [
-            do: inject_do(do_clause, {0, suffix(id, ctr, "T")}, fn_data),
-            else: inject_do(else_clause, {0, suffix(id, ctr, "F")}, fn_data)
+            do: inject_do(do_clause, {0, suffix(id, ctr, "T")}),
+            else: inject_do(else_clause, {0, suffix(id, ctr, "F")})
           ]
 
         [do: do_clause] ->
-          [do: inject_do(do_clause, {0, suffix(id, ctr, "T")}, fn_data)]
-
-        r ->
-          raise ArgumentError, message: "UNHANDLED IF CONSTRUCT" <> to_string(r)
+          [do: inject_do(do_clause, {0, suffix(id, ctr, "T")})]
       end
 
     {:if, meta, [cond_stmt, injected_clauses]}
   end
 
-  defp handle_statement(pass, _tracking_data, _fn_data) do
+  defp handle_statement({:unless, meta, [cond_stmt, clauses]}, {ctr, id}) do
+    injected_clauses =
+      case clauses do
+        [do: do_clause, else: else_clause] ->
+          [
+            do: inject_do(do_clause, {0, suffix(id, ctr, "UT")}),
+            else: inject_do(else_clause, {0, suffix(id, ctr, "UF")})
+          ]
+
+        [do: do_clause] ->
+          [do: inject_do(do_clause, {0, suffix(id, ctr, "UT")})]
+      end
+
+    {:if, meta, [cond_stmt, injected_clauses]}
+  end
+
+  defp handle_statement({:with, meta, matchers_and_fallbacks}, {ctr, id}) do
+    modified_matchers_and_fallbacks =
+      matchers_and_fallbacks
+      |> Enum.map(fn matcher_or_fallback ->
+        case matcher_or_fallback do
+          {:<-, meta, clause} ->
+            {:<-, meta, clause}
+
+          [do: do_clause] ->
+            [do: inject_do(do_clause, {0, suffix(id, ctr, "WT")})]
+
+          [do: do_clause, else: else_branches] ->
+            [
+              do: inject_do(do_clause, {0, suffix(id, ctr, "WT")}),
+              else:
+                else_branches
+                |> Enum.with_index()
+                |> Enum.map(fn {branch, idx} ->
+                  handle_statement(branch, {0, suffix(id, ctr, "WF" <> to_string(idx + 1))})
+                end)
+            ]
+        end
+      end)
+
+    {:with, meta, modified_matchers_and_fallbacks}
+  end
+
+  defp handle_statement({:case, meta, [cond_stmt, [{:do, branches}]]}, {ctr, id}) do
+    modified_branches =
+      branches
+      |> Enum.with_index()
+      |> Enum.map(fn {branch, idx} ->
+        handle_statement(branch, {0, suffix(id, ctr, "C" <> to_string(idx + 1))})
+      end)
+
+    {:case, meta, [cond_stmt, [{:do, modified_branches}]]}
+  end
+
+  defp handle_statement({:cond, meta, [[{:do, branches}]]}, {ctr, id}) do
+    modified_branches =
+      branches
+      |> Enum.with_index()
+      |> Enum.map(fn {branch, idx} ->
+        handle_statement(branch, {0, suffix(id, ctr, "O" <> to_string(idx + 1))})
+      end)
+
+    {:cond, meta, [[{:do, modified_branches}]]}
+  end
+
+  defp handle_statement({:->, meta, [matcher, clause]}, {ctr, id}) do
+    {:->, meta, [matcher, inject_do(clause, {ctr, id})]}
+  end
+
+  defp handle_statement(pass, _tracking_data) do
     pass
   end
 
-  defp inject_do({:__block__, meta, stmts}, tracking_data = {_ctr, id}, fn_data) do
+  defp inject_do({:__block__, meta, stmts}, tracking_data = {_ctr, id}) do
     state_pid_var = Macro.var(:state_pid, nil)
 
     injection =
@@ -239,16 +306,16 @@ defmodule Injector do
         send(unquote(state_pid_var), unquote(id))
       end
 
-    {:__block__, meta, [injection | traverse_statements(stmts, tracking_data, fn_data)]}
+    {:__block__, meta, [injection | traverse_statements(stmts, tracking_data)]}
   end
 
-  defp inject_do(stmt, tracking_data = {_ctr, id}, fn_data) do
+  defp inject_do(stmt, tracking_data = {_ctr, id}) do
     state_pid_var = Macro.var(:state_pid, nil)
 
     quote do
       send(unquote(state_pid_var), unquote(id))
 
-      unquote(traverse_statements(stmt, tracking_data, fn_data))
+      unquote(traverse_statements(stmt, tracking_data))
     end
   end
 end

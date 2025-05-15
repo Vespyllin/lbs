@@ -38,30 +38,81 @@ defmodule NumberChecker do
     end
   end
 
-  def fuzz_target(str, state_pid) do
-    try do
-      if "Z" in String.graphemes(str) do
-        send(state_pid, "S-1T")
-        :good
-      end
+  def check_string(str) do
+    letters = String.graphemes(str)
 
-      if "a" in String.graphemes(str) do
-        send(state_pid, "S-2T")
-
-        if "b" in String.graphemes(str) do
-          send(state_pid, "S-2T-1T")
-          :good
-        end
-
-        if "c" in String.graphemes(str) do
-          send(state_pid, "S-2T-2T")
-          raise "AB"
-        end
-      end
-
+    if "Z" in letters and String.length(str) > 1024 do
       :good
+    end
+
+    if "a" in letters and "c" in letters do
+      if "d" in letters and "e" in letters do
+        raise "no air conditioning allowed"
+      end
+    end
+
+    check_string(str)
+    :good
+  end
+
+  def test2(param) do
+    case param do
+      n when is_number(n) ->
+        :num
+        :num2
+
+      _s ->
+        :str
+    end
+  end
+
+  def test3(param) do
+    cond do
+      param > 10 -> :a
+      param < 5 -> :b
+      true -> :c
+    end
+  end
+
+  def test4(param) do
+    unless param do
+      :a
+    else
+      :b
+    end
+  end
+
+  def fuzz_target(param, state_pid) do
+    try do
+      :testline
+
+      with {:ok, a} <- param,
+           {:ok, _b} <- a do
+        send(state_pid, "S-2WT")
+        :voom
+      else
+        {:error, _reason} ->
+          send(state_pid, "S-2WF1")
+          :bam
+
+        {:isok, _reason} ->
+          send(state_pid, "S-2WF2")
+          :wow
+      end
     rescue
       e -> e
+    end
+  end
+
+  def test param do
+    :testline
+
+    with {:ok, a} <- param,
+         {:ok, _b} <- a do
+      :voom
+    else
+      {:error, _reason} -> :bam
+      {:isok, _reason} -> :wow
     end
   end
 end
