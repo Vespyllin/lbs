@@ -3,78 +3,80 @@ defmodule Blame do
     traverse(ast, {0, 0, "S"}, {cause_ids, fn_name, arity})
   end
 
-  defp highlight(print_stmt, color) do
-    prefix =
-      case color do
-        :red -> IO.ANSI.red()
-        :blue -> IO.ANSI.blue()
-        :gray -> IO.ANSI.color(1, 1, 1)
-      end
-
-    prefix <> print_stmt <> IO.ANSI.reset()
-  end
-
   defp traverse(
          {:if, _meta, [condition, clauses]},
          {depth, ctr, acc},
          config = {cause_ids, _, _}
        ) do
+    padding = String.duplicate(" ", depth * 2)
+
+    # if(ctr != 0) do
+    #   IO.puts("")
+    # end
+
     true_id = "#{acc}-#{ctr + 1}T"
     false_id = "#{acc}-#{ctr + 1}F"
+
     cause_true = true_id in cause_ids
     cause_false = false_id in cause_ids
 
     case clauses do
       [do: do_clause, else: else_clause] ->
-        IO.puts(
-          String.duplicate(" ", depth * 2) <>
-            highlight(
-              "if #{Macro.to_string(condition)} do",
-              if(not (cause_false or cause_true),
-                do: :gray,
-                else: if(cause_false, do: :blue, else: :red)
-              )
-            )
-        )
+        {if_color, else_color} =
+          case {cause_true, cause_false} do
+            {true, false} -> {IO.ANSI.red(), IO.ANSI.color(1, 1, 1)}
+            {false, true} -> {IO.ANSI.blue(), IO.ANSI.red()}
+            _ -> {IO.ANSI.color(1, 1, 1), IO.ANSI.color(1, 1, 1)}
+          end
+
+        IO.write(if_color)
+        IO.puts(padding <> "if #{Macro.to_string(condition)} do")
+        IO.write(IO.ANSI.reset())
+
+        if(not cause_true) do
+          IO.write(IO.ANSI.color(1, 1, 1))
+        end
 
         traverse(do_clause, {depth + 1, ctr, true_id}, config)
+        IO.write(IO.ANSI.reset())
 
-        IO.puts(
-          String.duplicate(" ", depth * 2) <>
-            highlight(
-              "else",
-              if(not cause_false, do: :gray, else: :red)
-            )
-        )
+        IO.write(else_color)
+        IO.puts(padding <> "else")
+        IO.write(IO.ANSI.reset())
+
+        if(not cause_false) do
+          IO.write(IO.ANSI.color(1, 1, 1))
+        end
 
         traverse(else_clause, {depth + 1, 0, false_id}, config)
+        IO.write(IO.ANSI.reset())
 
-        IO.puts(
-          String.duplicate(" ", depth * 2) <>
-            highlight(
-              "end",
-              if(not (cause_false or cause_true),
-                do: :gray,
-                else: if(cause_false, do: :blue, else: :red)
-              )
-            )
-        )
+        IO.write(if_color)
+        IO.puts(padding <> "end")
+        IO.write(IO.ANSI.reset())
 
       [do: do_clause] ->
-        IO.puts(
-          String.duplicate(" ", depth * 2) <>
-            highlight(
-              "if #{Macro.to_string(condition)} do",
-              if(cause_true, do: :red, else: :gray)
-            )
-        )
+        if_color =
+          if(cause_true) do
+            IO.ANSI.red()
+          else
+            IO.ANSI.color(1, 1, 1)
+          end
+
+        IO.write(if_color)
+        IO.puts(padding <> "if #{Macro.to_string(condition)} do")
+        IO.write(IO.ANSI.reset())
+
+        if(not cause_true) do
+          IO.write(IO.ANSI.color(1, 1, 1))
+        end
 
         traverse(do_clause, {depth + 1, 0, true_id}, config)
+        IO.write(IO.ANSI.reset())
 
-        IO.puts(
-          String.duplicate(" ", depth * 2) <>
-            highlight("end", if(cause_true, do: :red, else: :gray))
-        )
+        IO.write(if_color)
+        IO.puts(padding <> "end")
+        IO.write(IO.ANSI.reset())
     end
   end
 

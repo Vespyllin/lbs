@@ -1,6 +1,10 @@
 defmodule PropEl do
-  @succ_energy 10_000
-  @disc_energy 1000
+  require Blame
+  require Fuzzer
+  require Injector
+
+  @succ_energy 10000
+  @disc_energy 500
   @mutation_count 1
   @fuzz_atoms [:fuzz_number, :fuzz_string]
 
@@ -137,7 +141,6 @@ defmodule PropEl do
         receive do
           :new ->
             mask = compute_mask(mod, path_ids, input)
-
             send(queue_pid, {:successful, input, mask, @succ_energy})
             send(coverage_pid, {:submit, path_hash})
 
@@ -190,7 +193,13 @@ defmodule PropEl do
       {:bug, iter, path_ids, input, res} ->
         IO.puts(
           "Bug found at iter ##{if iter < 0, do: -1 - iter, else: max_iter - iter} with input " <>
-            IO.ANSI.blue() <> inspect(input) <> IO.ANSI.reset() <> " yielding result:"
+            IO.ANSI.blue() <>
+            case input_type do
+              :fuzz_number -> inspect(input)
+              :fuzz_string -> input
+            end <>
+            IO.ANSI.reset() <>
+            " yielding result:"
         )
 
         IO.puts(IO.ANSI.blue() <> inspect(res) <> IO.ANSI.reset())
@@ -201,30 +210,5 @@ defmodule PropEl do
       {:no_bug} ->
         IO.puts("No bugs found after #{max_iter} iterations.")
     end
-  end
-
-  def highlight_mask(masks, string) do
-    string
-    |> String.graphemes()
-    |> Enum.with_index()
-    |> Enum.map(fn {char, idx} ->
-      # Default to empty list if mask not present
-      mask = Enum.at(masks, idx, [])
-
-      if length(mask) < 3 do
-        IO.ANSI.green() <> char <> IO.ANSI.reset()
-      else
-        char
-      end
-    end)
-    |> Enum.join()
-    |> IO.puts()
-
-    masks
-    |> Enum.map(fn mask ->
-      if length(mask) < 3 do
-        IO.inspect(mask)
-      end
-    end)
   end
 end

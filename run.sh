@@ -1,1 +1,1 @@
-iex -r script.exs -e "System.halt(0)"
+mix run script.exs

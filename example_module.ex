@@ -27,15 +27,10 @@ defmodule NumberChecker do
     end
 
     if "a" in letters and "c" in letters do
-      raise "no air conditioning allowed"
+      if "d" in letters and "e" in letters do
+        raise "no air conditioning allowed"
+      end
     end
-
-    # if "a" in letters and "b" in letters and
-    #      "c" in letters and "d" in letters do
-    #   if String.length(str) == 24 do
-    #     raise "no air conditioning allowed"
-    #   end
-    # end
 
     :good
   end
