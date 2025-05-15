@@ -20,19 +20,22 @@ defmodule NumberChecker do
   end
 
   def check_string(str) do
-    if "Z" in String.graphemes(str) do
+    letters = String.graphemes(str)
+
+    if "Z" in letters and String.length(str) > 1024 do
       :good
     end
 
-    if "a" in String.graphemes(str) do
-      if "b" in String.graphemes(str) do
-        :good
-      end
-
-      if "c" in String.graphemes(str) do
-        raise "no air conditioning allowed"
-      end
+    if "a" in letters and "c" in letters do
+      raise "no air conditioning allowed"
     end
+
+    # if "a" in letters and "b" in letters and
+    #      "c" in letters and "d" in letters do
+    #   if String.length(str) == 24 do
+    #     raise "no air conditioning allowed"
+    #   end
+    # end
 
     :good
   end

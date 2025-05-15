@@ -1,5 +1,5 @@
 defmodule PropEl do
-  @succ_energy 100_000
+  @succ_energy 10_000
   @disc_energy 1000
   @mutation_count 1
   @fuzz_atoms [:fuzz_number, :fuzz_string]
@@ -10,8 +10,8 @@ defmodule PropEl do
         new_state = %{state | qsucc: [{inputs, mask, energy}] ++ state.qsucc}
         queue_server(new_state)
 
-      {:discard, inputs, energy} ->
-        new_state = %{state | qdisc: [{inputs, energy}] ++ state.qdisc}
+      {:discard, inputs, mask, energy} ->
+        new_state = %{state | qdisc: [{inputs, mask, energy}] ++ state.qdisc}
         queue_server(new_state)
 
       {:all, caller} ->
@@ -21,7 +21,7 @@ defmodule PropEl do
         case state.qsucc do
           [{inputs, mask, energy} | rest] when energy > 1 ->
             send(caller, {:ok, inputs, mask})
-            queue_server(%{state | qsucc: rest ++ [{inputs, mask, energy - 1}]})
+            queue_server(%{state | qsucc: [{inputs, mask, energy - 1} | rest]})
 
           [{inputs, mask, 1} | rest] ->
             send(caller, {:ok, inputs, mask})
@@ -29,12 +29,12 @@ defmodule PropEl do
 
           [] ->
             case state.qdisc do
-              [{inputs, energy} | rest] when energy > 1 ->
-                send(caller, {:ok, inputs, nil})
-                queue_server(%{state | qdisc: rest ++ [{inputs, energy - 1}]})
+              [{inputs, mask, energy} | rest] when energy > 1 ->
+                send(caller, {:ok, inputs, mask})
+                queue_server(%{state | qdisc: [{inputs, mask, energy - 1} | rest]})
 
-              [{inputs, 1} | rest] ->
-                send(caller, {:ok, inputs, nil})
+              [{inputs, mask, 1} | rest] ->
+                send(caller, {:ok, inputs, mask})
                 queue_server(%{state | qdisc: rest})
 
               [] ->
@@ -107,15 +107,15 @@ defmodule PropEl do
     # Get next input
     send(queue_pid, {:dequeue, self()})
 
-    input =
+    {input, seed_mask} =
       receive do
         # Mutate only those inputs we're fuzzing
-        {:ok, input_seed, mask} ->
-          Fuzzer.mutate(input_seed, @mutation_count, mask)
+        {:ok, seed, seed_mask} ->
+          {Fuzzer.mutate(seed, @mutation_count, seed_mask), seed_mask}
 
         # Generate randomly
         nil ->
-          Fuzzer.gen(input_type)
+          {Fuzzer.gen(input_type), nil}
       end
 
     # Run function
@@ -142,7 +142,7 @@ defmodule PropEl do
             send(coverage_pid, {:submit, path_hash})
 
           :seen ->
-            send(queue_pid, {:discard, input, @disc_energy})
+            send(queue_pid, {:discard, input, seed_mask, @disc_energy})
         end
       end
 
@@ -185,9 +185,8 @@ defmodule PropEl do
 
     # Return results
     IO.puts("Initiating fuzzing loop...\n")
-    res = fuzz_loop({queue_pid, coverage_pid, mod, input_type, p})
 
-    case res do
+    case fuzz_loop({queue_pid, coverage_pid, mod, input_type, p}) do
       {:bug, iter, path_ids, input, res} ->
         IO.puts(
           "Bug found at iter ##{if iter < 0, do: -1 - iter, else: max_iter - iter} with input " <>
