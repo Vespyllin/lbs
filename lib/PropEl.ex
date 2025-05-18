@@ -255,9 +255,11 @@ defmodule PropEl do
           IO.puts("===== Traversed Branches =====")
           Blame.blame(ast, path_ids, fn_name, arity)
         end
+        :bug
 
       {:no_bug} ->
         IO.puts("No bugs found.")
+        :no_bug
     end
   end
 end

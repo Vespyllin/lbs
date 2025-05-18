@@ -35,6 +35,10 @@ defmodule NumberChecker do
     :good
   end
 
+  def check_other_string(str) do
+    if String.ends_with?(str, "c"), do: (raise "Bad string"), else: :good
+  end
+
   def test2(param) do
     case param do
       n when is_number(n) ->

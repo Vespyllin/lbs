@@ -18,7 +18,7 @@ defmodule Fuzzer do
   end
 
   defp randomize_char_at(str, index) when is_binary(str) do
-    # Printable ASCII 
+    # Printable ASCII
     random_char = <<:rand.uniform(94) + 31>>
 
     String.graphemes(str)
@@ -174,7 +174,7 @@ defmodule Fuzzer do
 
   def gen(gen_type, str_size) do
     case gen_type do
-      :fuzz_number -> generate_num(2 ** 64)
+      :fuzz_number -> generate_num(128)
       :fuzz_string -> for _ <- 1..str_size, into: "", do: <<Enum.random(32..126)>>
     end
   end
