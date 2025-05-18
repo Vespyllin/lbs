@@ -1,4 +1,4 @@
-PropEl.handle("./example_module.ex", :check_string, 1, :fuzz_string, fn res, _input ->
+PropEl.propel("./example_module.ex", :check_string, 1, :fuzz_string, fn res, _input ->
   res == :good
 end)
 

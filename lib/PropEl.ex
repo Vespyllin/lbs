@@ -4,11 +4,55 @@ defmodule PropEl do
   require Injector
 
   @succ_energy 100_000
-  @disc_energy floor(@succ_energy / 3)
+  @disc_energy 5
   @mutation_count 1
 
   @fuzz_atoms [:fuzz_number, :fuzz_string]
   @max_string_size 128
+
+  defp contained?(sublist, list) do
+    sublist_length = length(sublist)
+    list_length = length(list)
+
+    if sublist_length > list_length do
+      false
+    else
+      Enum.any?(0..(list_length - sublist_length), fn i ->
+        Enum.slice(list, i, sublist_length) == sublist
+      end)
+    end
+  end
+
+  defp trim_input(mod, input, path_ids) do
+    compute_masks = fn input ->
+      Fuzzer.compute_mask(fn mutated_input -> check_fn(mod, mutated_input, path_ids) end, input)
+    end
+
+    trim_rec = fn trim_rec, current_input ->
+      masks = compute_masks.(current_input)
+
+      case Enum.find_index(masks, fn mask -> :delete in mask end) do
+        nil ->
+          current_input
+
+        index ->
+          new_input =
+            current_input
+            |> String.graphemes()
+            |> List.delete_at(index)
+            |> Enum.join()
+
+          trim_rec.(trim_rec, new_input)
+      end
+    end
+
+    trim_rec.(trim_rec, input)
+  end
+
+  def check_fn(mod, mutated_input, path_ids) do
+    {_res, new_path_ids} = apply(mod, :hook, [[mutated_input]])
+    contained?(path_ids, new_path_ids)
+  end
 
   defp queue_server(state) do
     receive do
@@ -73,19 +117,6 @@ defmodule PropEl do
     end
   end
 
-  def contained?(sublist, list) do
-    sublist_length = length(sublist)
-    list_length = length(list)
-
-    if sublist_length > list_length do
-      false
-    else
-      Enum.any?(0..(list_length - sublist_length), fn i ->
-        Enum.slice(list, i, sublist_length) == sublist
-      end)
-    end
-  end
-
   defp dequeue_input(server_pid, input_type) do
     send(server_pid, {:dequeue, self()})
 
@@ -123,12 +154,11 @@ defmodule PropEl do
     # Queue accordingly
     receive do
       :new ->
-        check_fn = fn mutated_input ->
-          {_res, new_path_ids} = apply(mod, :hook, [[mutated_input]])
-          contained?(path_ids, new_path_ids)
-        end
-
-        mask = Fuzzer.compute_mask(check_fn, input)
+        mask =
+          Fuzzer.compute_mask(
+            fn mutated_input -> check_fn(mod, mutated_input, path_ids) end,
+            input
+          )
 
         send(queue_pid, {:successful, input, mask, @succ_energy * length(path_ids)})
         send(coverage_pid, {:submit, path_hash})
@@ -159,7 +189,7 @@ defmodule PropEl do
     end
   end
 
-  def handle(source_file, fn_name, arity, input_type, p) do
+  def propel(source_file, fn_name, arity, input_type, p) do
     unless arity == 1 do
       IO.puts(IO.ANSI.red() <> "Can only fuzz functions with 1 parameter." <> IO.ANSI.reset())
 
@@ -203,9 +233,18 @@ defmodule PropEl do
             " input " <>
             IO.ANSI.blue() <>
             case input_type do
-              :fuzz_number -> inspect(input)
-              :fuzz_string -> input
+              :fuzz_string -> inspect(input)
+              :fuzz_number -> input
             end <>
+            IO.ANSI.reset() <>
+            " (trimmed: " <>
+            IO.ANSI.blue() <>
+            case input_type do
+              :fuzz_string -> inspect(trim_input(mod, input, path_ids))
+              :fuzz_number -> "NOT IMPLEMENTED"
+            end <>
+            IO.ANSI.reset() <>
+            ")" <>
             IO.ANSI.reset() <>
             " yielding result:"
         )

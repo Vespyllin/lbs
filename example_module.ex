@@ -22,10 +22,12 @@ defmodule NumberChecker do
   def check_string(str) do
     letters = String.graphemes(str)
 
-    if "b" in letters do
-      if "a" in letters do
-        if String.contains?(str, "bad") do
-          raise "BAD"
+    if String.length(str) > 10 do
+      if "b" in letters do
+        if "a" in letters do
+          if String.contains?(str, "bad") do
+            raise "BAD"
+          end
         end
       end
     end
