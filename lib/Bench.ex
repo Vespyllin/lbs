@@ -18,7 +18,7 @@ defmodule Bench do
     # Print header
   IO.puts("\n" <> String.duplicate("-", 105))
   :io.format(
-    "~-40s | ~10s | ~10s | ~10s | ~10s | ~10s~n",
+    "~-35s | ~10s | ~10s | ~10s | ~10s | ~10s~n",
     ["Name", "Bugs", "Total", "Min", "Max", "Avg"]
   )
   IO.puts("\n" <> String.duplicate("-", 105))
@@ -29,7 +29,7 @@ defmodule Bench do
 
   # Print values
   :io.format(
-    "~-40s | ~10w | ~10w | ~10w | ~10w | ~10w~n",
+    "~-35s | ~10w | ~10w | ~10w | ~10w | ~10w~n",
     [name, bugs_found, total_time, min_time, max_time, avg_time]
   )
 end
