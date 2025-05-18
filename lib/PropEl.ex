@@ -3,12 +3,13 @@ defmodule PropEl do
   require Fuzzer
   require Injector
 
-  @succ_energy 10000
-  @disc_energy 500
-  @successful_mutation_count 5
-  @discard_mutation_count 25
+  @succ_energy 1000
+  @disc_energy 250
+  @mutation_count 5
+
   @fuzz_atoms [:fuzz_number, :fuzz_string]
-  @max_string_size 2048
+  # @max_string_size 1024
+  @max_string_size 512
 
   defp queue_server(state) do
     receive do
@@ -93,10 +94,14 @@ defmodule PropEl do
       receive do
         # Mutate only those inputs we're fuzzing
         {:ok, seed, seed_mask, queue} ->
-          mutation_count =
-            if(queue == :successful, do: @successful_mutation_count, else: @discard_mutation_count)
+          mutation =
+            if(queue == :successful) do
+              Fuzzer.mutate(seed, @mutation_count, seed_mask)
+            else
+              Fuzzer.havoc(seed, seed_mask)
+            end
 
-          {Fuzzer.mutate(seed, mutation_count, seed_mask), seed_mask, queue}
+          {mutation, seed_mask, queue}
 
         # Generate randomly
         nil ->
@@ -106,7 +111,7 @@ defmodule PropEl do
     {input, seed_mask, quality}
   end
 
-  defp queue_input(_, _, _, path_ids, _, _) when length(path_ids) == 0 do
+  defp queue_input(_, _, _, path_ids, _, _, _) when length(path_ids) == 0 do
     nil
   end
 

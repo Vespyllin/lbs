@@ -60,44 +60,100 @@ defmodule Fuzzer do
     }
 
     {mutated_input, _} =
-      Enum.reduce(1..n, {input, mask}, fn _, acc ->
-        {seed, seed_mask} = acc
-        graphemes = String.graphemes(seed)
+      Enum.reduce(1..n, {input, mask}, fn _, {acc_input, acc_mask} ->
+        graphemes = String.graphemes(acc_input)
 
-        # Get all valid indices with their allowed mutations
-        valid_indices =
-          Enum.with_index(graphemes)
-          |> Enum.filter(fn {_, idx} ->
-            mask == nil || (idx < length(mask) && length(Enum.at(mask, idx)) > 0)
-          end)
+        Enum.with_index(graphemes)
+        |> Enum.reduce({acc_input, acc_mask}, fn {_, idx}, {curr_input, curr_mask} ->
+          allowed =
+            if curr_mask do
+              Enum.at(curr_mask, idx, [])
+            else
+              [Enum.random(full_mask)]
+            end
 
-        if valid_indices == [] do
-          # No valid mutations possible
-          acc
-        else
-          # Get a random index and its mask
-          {_, mutation_index} = Enum.random(valid_indices)
+          if allowed == [] do
+            {curr_input, curr_mask}
+          else
+            mutator_key = Enum.random(allowed)
+            mutator = Map.get(mutators, mutator_key)
 
-          # Get allowed mutations for this index (or all if mask is nil)
-          allowed_mutations = if mask, do: Enum.at(mask, mutation_index), else: full_mask
+            new_input = mutator.(curr_input, idx)
 
-          # Choose a random allowed mutator
-          mutator_key = Enum.random(allowed_mutations)
-          mutator = Map.get(mutators, mutator_key)
+            new_mask =
+              if curr_mask do
+                case mutator_key do
+                  :insert ->
+                    List.insert_at(curr_mask, idx, full_mask)
 
-          mutated_seed = mutator.(seed, mutation_index)
+                  :delete ->
+                    List.delete_at(curr_mask, idx)
 
-          mutated_mask =
-            if mask, do: List.insert_at(seed_mask, mutation_index, full_mask), else: nil
+                  _ ->
+                    curr_mask
+                end
+              else
+                nil
+              end
 
-          {mutated_seed, mutated_mask}
-        end
+            {new_input, new_mask}
+          end
+        end)
       end)
 
     mutated_input
   end
 
-  def mutate(item, n, _mask) when is_number(item) do
+  def random_ok_to_mutate(mask, mutation) do
+    allowed =
+      mask
+      |> Enum.with_index()
+      |> Enum.filter(fn {m, _idx} -> mutation in m end)
+
+    if allowed == [] do
+      nil
+    else
+      {_m, idx} = Enum.random(allowed)
+      idx
+    end
+  end
+
+  def havoc(input, mask) when is_binary(input) do
+    full_mask = [:flip, :insert, :delete]
+
+    mutators = %{
+      flip: &randomize_char_at/2,
+      insert: &insert_char_at/2,
+      delete: &delete_char_at/2
+    }
+
+    num_mutations = :rand.uniform(256)
+
+    Enum.reduce(1..num_mutations, {input, mask}, fn _, {curr_input, curr_mask} ->
+      mutation = Enum.random(full_mask)
+
+      case random_ok_to_mutate(curr_mask, mutation) do
+        nil ->
+          {curr_input, curr_mask}
+
+        idx ->
+          mutator = Map.get(mutators, mutation)
+          new_input = mutator.(curr_input, idx)
+
+          new_mask =
+            case {curr_mask, mutation} do
+              {nil, _} -> curr_mask
+              {_, :insert} -> List.insert_at(curr_mask, idx, full_mask)
+              {_, :delete} -> List.delete_at(curr_mask, idx)
+              _ -> curr_mask
+            end
+
+          {new_input, new_mask}
+      end
+    end)
+  end
+
+  def _mutate(item, n, _mask) when is_number(item) do
     mutators = [
       # &inc/1,
       # &dec/1,
