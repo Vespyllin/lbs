@@ -1,5 +1,5 @@
-PropEl.handle("./example_module.ex", :test5, 1, :fuzz_string, fn res, _input ->
-  res == :a
+PropEl.handle("./example_module.ex", :check_string, 1, :fuzz_string, fn res, _input ->
+  res == :good
 end)
 
 # Injector._instrument("./example_module.ex", :test5, 1, "./", true)

@@ -28,11 +28,14 @@ defmodule NumberChecker do
 
     if "a" in letters and "c" in letters do
       if "d" in letters and "e" in letters do
-        raise "no air conditioning allowed"
+        if "f" in letters and "g" in letters do
+          if length(letters) > 1000 do
+            raise "no air conditioning allowed"
+          end
+        end
       end
     end
 
-    check_string(str)
     :good
   end
 

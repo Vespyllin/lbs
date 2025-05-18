@@ -2,13 +2,13 @@ import Bitwise
 
 defmodule Fuzzer do
   # Strings
-  def delete_char_at(str, index) when is_binary(str) do
+  defp delete_char_at(str, index) when is_binary(str) do
     String.graphemes(str)
     |> List.delete_at(index)
     |> Enum.join()
   end
 
-  def insert_char_at(str, index) when is_binary(str) do
+  defp insert_char_at(str, index) when is_binary(str) do
     # Printable ASCII
     char = <<:rand.uniform(94) + 31>>
 
@@ -17,7 +17,7 @@ defmodule Fuzzer do
     |> Enum.join()
   end
 
-  def flip_char_at(str, index) when is_binary(str) do
+  defp randomize_char_at(str, index) when is_binary(str) do
     # Printable ASCII 
     random_char = <<:rand.uniform(94) + 31>>
 
@@ -50,12 +50,11 @@ defmodule Fuzzer do
 
   defp generate_num(size), do: :rand.uniform(1 <<< size) - 1
 
-  # Export
   def mutate(input, n, mask) when is_binary(input) do
     full_mask = [:flip, :insert, :delete]
 
     mutators = %{
-      flip: &flip_char_at/2,
+      flip: &randomize_char_at/2,
       insert: &insert_char_at/2,
       delete: &delete_char_at/2
     }
@@ -76,18 +75,20 @@ defmodule Fuzzer do
           # No valid mutations possible
           acc
         else
-          {_, index} = Enum.random(valid_indices)
+          # Get a random index and its mask
+          {_, mutation_index} = Enum.random(valid_indices)
 
           # Get allowed mutations for this index (or all if mask is nil)
-          allowed_mutations = if mask, do: Enum.at(mask, index), else: full_mask
+          allowed_mutations = if mask, do: Enum.at(mask, mutation_index), else: full_mask
 
           # Choose a random allowed mutator
           mutator_key = Enum.random(allowed_mutations)
           mutator = Map.get(mutators, mutator_key)
 
-          mutated_seed = mutator.(seed, index)
+          mutated_seed = mutator.(seed, mutation_index)
 
-          mutated_mask = if mask, do: List.insert_at(seed_mask, index, full_mask), else: nil
+          mutated_mask =
+            if mask, do: List.insert_at(seed_mask, mutation_index, full_mask), else: nil
 
           {mutated_seed, mutated_mask}
         end
@@ -112,10 +113,23 @@ defmodule Fuzzer do
     end)
   end
 
-  def gen(gen_type) do
+  def gen(gen_type, str_size) do
     case gen_type do
       :fuzz_number -> generate_num(2 ** 64)
-      :fuzz_string -> for _ <- 1..8, into: "", do: <<Enum.random(32..126)>>
+      :fuzz_string -> for _ <- 1..str_size, into: "", do: <<Enum.random(32..126)>>
+    end
+  end
+
+  def compute_mask(check_fn, input) when is_binary(input) do
+    for index <- 0..(String.length(input) - 1) do
+      mutation_res = [
+        flip: randomize_char_at(input, index),
+        insert: insert_char_at(input, index),
+        delete: delete_char_at(input, index)
+      ]
+
+      Enum.filter(mutation_res, fn {_op, mutated_input} -> check_fn.(mutated_input) end)
+      |> Enum.map(fn {op, _inputs} -> op end)
     end
   end
 end

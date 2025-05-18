@@ -5,8 +5,10 @@ defmodule PropEl do
 
   @succ_energy 10000
   @disc_energy 500
-  @mutation_count 1
+  @successful_mutation_count 5
+  @discard_mutation_count 25
   @fuzz_atoms [:fuzz_number, :fuzz_string]
+  @max_string_size 2048
 
   defp queue_server(state) do
     receive do
@@ -24,21 +26,21 @@ defmodule PropEl do
       {:dequeue, caller} ->
         case state.qsucc do
           [{inputs, mask, energy} | rest] when energy > 1 ->
-            send(caller, {:ok, inputs, mask})
+            send(caller, {:ok, inputs, mask, :successful})
             queue_server(%{state | qsucc: [{inputs, mask, energy - 1} | rest]})
 
           [{inputs, mask, 1} | rest] ->
-            send(caller, {:ok, inputs, mask})
+            send(caller, {:ok, inputs, mask, :successful})
             queue_server(%{state | qsucc: rest})
 
           [] ->
             case state.qdisc do
               [{inputs, mask, energy} | rest] when energy > 1 ->
-                send(caller, {:ok, inputs, mask})
+                send(caller, {:ok, inputs, mask, :discard})
                 queue_server(%{state | qdisc: [{inputs, mask, energy - 1} | rest]})
 
               [{inputs, mask, 1} | rest] ->
-                send(caller, {:ok, inputs, mask})
+                send(caller, {:ok, inputs, mask, :discard})
                 queue_server(%{state | qdisc: rest})
 
               [] ->
@@ -84,76 +86,76 @@ defmodule PropEl do
     end
   end
 
-  defp compute_mask(mod, path_ids, input) when is_binary(input) do
-    for index <- 0..(String.length(input) - 1) do
-      mutation_res = [
-        flip: Fuzzer.flip_char_at(input, index),
-        insert: Fuzzer.insert_char_at(input, index),
-        delete: Fuzzer.delete_char_at(input, index)
-      ]
+  defp dequeue_input(server_pid, input_type) do
+    send(server_pid, {:dequeue, self()})
 
-      Enum.filter(
-        mutation_res,
-        fn {_op, mutated_input} ->
-          {_res, new_path_ids} = apply(mod, :hook, [[mutated_input]])
-          contained?(path_ids, new_path_ids)
-        end
-      )
-      |> Enum.map(fn {op, _inputs} -> op end)
-    end
-  end
-
-  defp fuzz_loop(config, iter \\ -1)
-
-  defp fuzz_loop(_, 0), do: {:no_bug}
-
-  defp fuzz_loop(config = {queue_pid, coverage_pid, mod, input_type, p}, iter) do
-    # Get next input
-    send(queue_pid, {:dequeue, self()})
-
-    {input, seed_mask} =
+    {input, seed_mask, quality} =
       receive do
         # Mutate only those inputs we're fuzzing
-        {:ok, seed, seed_mask} ->
-          {Fuzzer.mutate(seed, @mutation_count, seed_mask), seed_mask}
+        {:ok, seed, seed_mask, queue} ->
+          mutation_count =
+            if(queue == :successful, do: @successful_mutation_count, else: @discard_mutation_count)
+
+          {Fuzzer.mutate(seed, mutation_count, seed_mask), seed_mask, queue}
 
         # Generate randomly
         nil ->
-          {Fuzzer.gen(input_type), nil}
+          {Fuzzer.gen(input_type, :rand.uniform(@max_string_size)), nil, :random}
       end
+
+    {input, seed_mask, quality}
+  end
+
+  defp queue_input(_, _, _, path_ids, _, _) when length(path_ids) == 0 do
+    nil
+  end
+
+  defp queue_input(coverage_pid, queue_pid, mod, path_ids, input, seed_mask, quality) do
+    path_hash = Enum.join(path_ids, "/")
+
+    # Check coverage
+    send(coverage_pid, {:check, path_hash, self()})
+
+    # Queue accordingly
+    receive do
+      :new ->
+        check_fn = fn mutated_input ->
+          {_res, new_path_ids} = apply(mod, :hook, [[mutated_input]])
+          contained?(path_ids, new_path_ids)
+        end
+
+        mask = Fuzzer.compute_mask(check_fn, input)
+
+        send(queue_pid, {:successful, input, mask, @succ_energy})
+        send(coverage_pid, {:submit, path_hash})
+
+      :seen ->
+        if(quality == :successful) do
+          send(queue_pid, {:discard, input, seed_mask, @disc_energy})
+        end
+    end
+  end
+
+  defp fuzz_loop(config, iter \\ 1)
+
+  defp fuzz_loop(config = {queue_pid, coverage_pid, mod, input_type, p}, iter) do
+    # Get next input
+    {input, seed_mask, quality} = dequeue_input(queue_pid, input_type)
 
     # Run function
     {res, path_ids} = apply(mod, :hook, [[input]])
 
-    # Generate path hash (TODO: look into sophistication)
-    path_hash = Enum.join(path_ids, "/")
-
-    # Check property
+    # Continue or report bug
     if !p.(res, input) do
-      {:bug, iter, path_ids, input, res}
+      {:bug, iter, path_ids, input, res, quality}
     else
-      # Ignore seeds that don't hit any branches
-      if(length(path_ids) > 0 and input != "") do
-        # Check coverage
-        send(coverage_pid, {:check, path_hash, self()})
+      queue_input(coverage_pid, queue_pid, mod, path_ids, input, seed_mask, quality)
 
-        # Queue accordingly
-        receive do
-          :new ->
-            mask = compute_mask(mod, path_ids, input)
-            send(queue_pid, {:successful, input, mask, @succ_energy})
-            send(coverage_pid, {:submit, path_hash})
-
-          :seen ->
-            send(queue_pid, {:discard, input, seed_mask, @disc_energy})
-        end
-      end
-
-      fuzz_loop(config, iter - 1)
+      fuzz_loop(config, iter + 1)
     end
   end
 
-  def handle(source_file, fn_name, arity, input_type, p, max_iter \\ -1) do
+  def handle(source_file, fn_name, arity, input_type, p) do
     unless arity == 1 do
       IO.puts(IO.ANSI.red() <> "Can only fuzz functions with 1 parameter." <> IO.ANSI.reset())
 
@@ -190,9 +192,11 @@ defmodule PropEl do
     IO.puts("Initiating fuzzing loop...\n")
 
     case fuzz_loop({queue_pid, coverage_pid, mod, input_type, p}) do
-      {:bug, iter, path_ids, input, res} ->
+      {:bug, iter, path_ids, input, res, quality} ->
         IO.puts(
-          "Bug found at iter ##{if iter < 0, do: -1 - iter, else: max_iter - iter} with input " <>
+          "Bug found at iter ##{iter} with " <>
+            inspect(quality) <>
+            " input " <>
             IO.ANSI.blue() <>
             case input_type do
               :fuzz_number -> inspect(input)
@@ -202,7 +206,7 @@ defmodule PropEl do
             " yielding result:"
         )
 
-        IO.puts(IO.ANSI.blue() <> inspect(res) <> IO.ANSI.reset() <> "\n")
+        IO.puts(IO.ANSI.red() <> inspect(res) <> IO.ANSI.reset() <> "\n")
 
         if(length(path_ids) > 0) do
           IO.puts("===== Traversed Branches =====")
@@ -210,7 +214,7 @@ defmodule PropEl do
         end
 
       {:no_bug} ->
-        IO.puts("No bugs found after #{max_iter} iterations.")
+        IO.puts("No bugs found.")
     end
   end
 end
