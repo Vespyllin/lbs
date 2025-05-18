@@ -22,16 +22,10 @@ defmodule NumberChecker do
   def check_string(str) do
     letters = String.graphemes(str)
 
-    if "Z" in letters and String.length(str) > 1024 do
-      :good
-    end
-
-    if "a" in letters and "c" in letters do
-      if "d" in letters and "e" in letters do
-        if "f" in letters and "g" in letters do
-          if length(letters) > 1000 do
-            raise "no air conditioning allowed"
-          end
+    if "b" in letters do
+      if "a" in letters do
+        if String.contains?(str, "bad") do
+          raise "BAD"
         end
       end
     end

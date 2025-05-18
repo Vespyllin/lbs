@@ -129,28 +129,31 @@ defmodule Fuzzer do
 
     num_mutations = :rand.uniform(256)
 
-    Enum.reduce(1..num_mutations, {input, mask}, fn _, {curr_input, curr_mask} ->
-      mutation = Enum.random(full_mask)
+    {mutated_input, _} =
+      Enum.reduce(1..num_mutations, {input, mask}, fn _, {curr_input, curr_mask} ->
+        mutation = Enum.random(full_mask)
 
-      case random_ok_to_mutate(curr_mask, mutation) do
-        nil ->
-          {curr_input, curr_mask}
+        case random_ok_to_mutate(curr_mask, mutation) do
+          nil ->
+            {curr_input, curr_mask}
 
-        idx ->
-          mutator = Map.get(mutators, mutation)
-          new_input = mutator.(curr_input, idx)
+          idx ->
+            mutator = Map.get(mutators, mutation)
+            new_input = mutator.(curr_input, idx)
 
-          new_mask =
-            case {curr_mask, mutation} do
-              {nil, _} -> curr_mask
-              {_, :insert} -> List.insert_at(curr_mask, idx, full_mask)
-              {_, :delete} -> List.delete_at(curr_mask, idx)
-              _ -> curr_mask
-            end
+            new_mask =
+              case {curr_mask, mutation} do
+                {nil, _} -> curr_mask
+                {_, :insert} -> List.insert_at(curr_mask, idx, full_mask)
+                {_, :delete} -> List.delete_at(curr_mask, idx)
+                _ -> curr_mask
+              end
 
-          {new_input, new_mask}
-      end
-    end)
+            {new_input, new_mask}
+        end
+      end)
+
+    mutated_input
   end
 
   def _mutate(item, n, _mask) when is_number(item) do

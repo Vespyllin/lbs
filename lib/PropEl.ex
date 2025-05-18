@@ -3,13 +3,12 @@ defmodule PropEl do
   require Fuzzer
   require Injector
 
-  @succ_energy 1000
-  @disc_energy 250
-  @mutation_count 5
+  @succ_energy 100_000
+  @disc_energy floor(@succ_energy / 3)
+  @mutation_count 1
 
   @fuzz_atoms [:fuzz_number, :fuzz_string]
-  # @max_string_size 1024
-  @max_string_size 512
+  @max_string_size 128
 
   defp queue_server(state) do
     receive do
@@ -131,12 +130,12 @@ defmodule PropEl do
 
         mask = Fuzzer.compute_mask(check_fn, input)
 
-        send(queue_pid, {:successful, input, mask, @succ_energy})
+        send(queue_pid, {:successful, input, mask, @succ_energy * length(path_ids)})
         send(coverage_pid, {:submit, path_hash})
 
       :seen ->
         if(quality == :successful) do
-          send(queue_pid, {:discard, input, seed_mask, @disc_energy})
+          send(queue_pid, {:discard, input, seed_mask, @disc_energy * length(path_ids)})
         end
     end
   end
