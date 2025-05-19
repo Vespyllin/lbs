@@ -129,11 +129,11 @@ defmodule Injector do
 
   # Handle module components
   defp handle_mod_members(stmts, fn_data) when is_list(stmts) do
-    ([
-       gen_hook_ast()
-     ] ++
+    ([gen_hook_ast()] ++
        Enum.map(stmts, fn
          {decl_type, meta, fn_decl} when decl_type in [:def, :defp] ->
+           #  IO.inspect({decl_type, meta, fn_decl})
+
            case handle_fn_def(fn_decl, fn_data) do
              {:hit, modified_fn} ->
                [{decl_type, meta, modified_fn}, {decl_type, meta, fn_decl}]
@@ -162,6 +162,19 @@ defmodule Injector do
   end
 
   # Unravel functions
+  defp handle_fn_def(
+         [{:when, guard_meta, [{fn_name, meta, params} | guard]}, [do: stmt]],
+         {fn_name, arity}
+       )
+       when length(params) == arity do
+    IO.inspect("==================================")
+
+    {:hit, [new_decl, new_block]} =
+      handle_fn_def([{fn_name, meta, params}, [do: stmt]], {fn_name, arity})
+
+    {:hit, [{:when, guard_meta, [new_decl | guard]}, new_block]}
+  end
+
   defp handle_fn_def([{fn_name, meta, params}, [do: stmt]], {fn_name, arity})
        when length(params) == arity do
     new_stmts = traverse_statements(stmt, {0, "S"})
@@ -185,6 +198,7 @@ defmodule Injector do
   end
 
   defp handle_fn_def(pass, _) do
+    # IO.inspect(pass)
     {:miss, pass}
   end
 
