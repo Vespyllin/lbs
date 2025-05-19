@@ -9,20 +9,31 @@
 # )
 # |> IO.inspect()
 
-# mod = PropEl.benchmark_prep("./tests/example_module.ex", :check_string)
-# property = fn _res, _input -> false end
-# PropEl.benchmark_runner(mod, property) |> IO.inspect()
+# Injector.out("./tests/example_module.ex", :check_att, 1, "./", true)
 
-# test_two = {"./tests/example_module.ex", :check_other_string, :fuzz_string, fn res, _input ->
-#   res == :good
-# end}
+test_one =
+  {"./tests/custom_benchmarks.ex", :constructive_branch, fn res, _input -> res == :ok end}
 
-# test_three = {"./tests/example_module_two.ex", :check_string, :fuzz_string, fn res, _input ->
-#   res == :good
-# end}
+_test_two =
+  {"./tests/custom_benchmarks.ex", :constructive_branch_stall, fn res, _input -> res == :ok end}
 
-test_one = {"./tests/example_module.ex", :check_string, fn res, _input -> res == :good end}
-Bench.test_suite([test_one], 10)
-# Bench.test_suite([test_one, test_two, test_three])
+cases = [test_one]
 
-# # Injector._instrument("./example_module.ex", :test5, 1, "./", true)
+t = 1000
+
+iters = 12
+
+timeout1 = 30 * t
+Bench.run(cases, {true, true}, iters, timeout1)
+Bench.run(cases, {true, false}, iters, timeout1)
+Bench.run(cases, {false, false}, iters, timeout1)
+
+# timeout2 = 180 * t
+# Bench.run(cases, {true, true}, iters, timeout2)
+# Bench.run(cases, {true, false}, iters, timeout2)
+# Bench.run(cases, {false, false}, iters, timeout2)
+
+# timeout3 = 6000 * t
+# Bench.run(cases, {true, true}, iters, timeout3)
+# Bench.run(cases, {true, false}, iters, timeout3)
+# Bench.run(cases, {false, false}, iters, timeout3)

@@ -6,7 +6,7 @@ defmodule PropEl do
   @succ_energy 1000
   @disc_energy 5
   @mutation_count 1
-  @max_string_size 1024
+  @max_string_size 8
 
   defp contained?(sublist, list) do
     sublist_length = length(sublist)
@@ -116,34 +116,47 @@ defmodule PropEl do
   end
 
   defp dequeue_input(server_pid) do
-    send(server_pid, {:dequeue, self()})
+    if server_pid do
+      send(server_pid, {:dequeue, self()})
 
-    {input, seed_mask, quality} =
-      receive do
-        # Mutate only those inputs we're fuzzing
-        {:ok, seed, seed_mask, queue} ->
-          mutation =
-            if(queue == :successful) do
-              Fuzzer.mutate(seed, @mutation_count, seed_mask)
-            else
-              Fuzzer.havoc(seed, seed_mask)
-            end
+      {input, seed_mask, quality} =
+        receive do
+          # Mutate only those inputs we're fuzzing
+          {:ok, seed, seed_mask, queue} ->
+            mutation =
+              if(queue == :successful) do
+                Fuzzer.mutate(seed, @mutation_count, seed_mask)
+              else
+                Fuzzer.havoc(seed, seed_mask)
+              end
 
-          {mutation, seed_mask, queue}
+            {mutation, seed_mask, queue}
 
-        # Generate randomly
-        nil ->
-          {Fuzzer.gen(:rand.uniform(@max_string_size)), nil, :random}
-      end
+          # Generate randomly
+          nil ->
+            {Fuzzer.gen(:rand.uniform(@max_string_size)), nil, :random}
+        end
 
-    {input, seed_mask, quality}
+      {input, seed_mask, quality}
+    else
+      {Fuzzer.gen(:rand.uniform(@max_string_size)), nil, :random}
+    end
   end
 
-  defp queue_input(_, _, _, path_ids, _, _, _) when length(path_ids) == 0 do
+  defp queue_input(_, _, _, path_ids, _, _, _, _) when length(path_ids) == 0 do
     nil
   end
 
-  defp queue_input(coverage_pid, queue_pid, mod, path_ids, input, seed_mask, quality) do
+  defp queue_input(
+         coverage_pid,
+         queue_pid,
+         mod,
+         path_ids,
+         input,
+         seed_mask,
+         quality,
+         compute_mask
+       ) do
     path_hash = Enum.join(path_ids, "/")
 
     # Check coverage
@@ -153,10 +166,14 @@ defmodule PropEl do
     receive do
       :new ->
         mask =
-          Fuzzer.compute_mask(
-            fn mutated_input -> check_fn(mod, mutated_input, path_ids) end,
-            input
-          )
+          if compute_mask do
+            Fuzzer.compute_mask(
+              fn mutated_input -> check_fn(mod, mutated_input, path_ids) end,
+              input
+            )
+          else
+            nil
+          end
 
         send(queue_pid, {:successful, input, mask, @succ_energy * length(path_ids)})
         send(coverage_pid, {:submit, path_hash})
@@ -170,7 +187,7 @@ defmodule PropEl do
 
   defp fuzz_loop(config, iter \\ 1)
 
-  defp fuzz_loop(config = {queue_pid, coverage_pid, mod, p}, iter) do
+  defp fuzz_loop(config = {queue_pid, coverage_pid, mod, p, use_scheduler, calc_mask}, iter) do
     # Get next input
     {input, seed_mask, quality} = dequeue_input(queue_pid)
 
@@ -181,7 +198,9 @@ defmodule PropEl do
     if !p.(res, input) do
       {:bug, iter, path_ids, input, res, quality}
     else
-      queue_input(coverage_pid, queue_pid, mod, path_ids, input, seed_mask, quality)
+      if use_scheduler do
+        queue_input(coverage_pid, queue_pid, mod, path_ids, input, seed_mask, quality, calc_mask)
+      end
 
       fuzz_loop(config, iter + 1)
     end
@@ -209,7 +228,8 @@ defmodule PropEl do
     end
 
     return_val =
-      {:bug, iter, path_ids, input, res, quality} = fuzz_loop({queue_pid, coverage_pid, mod, p})
+      {:bug, iter, path_ids, input, res, quality} =
+      fuzz_loop({queue_pid, coverage_pid, mod, p, true, true})
 
     if(print) do
       IO.puts(
@@ -247,10 +267,13 @@ defmodule PropEl do
     |> Injector.instrument(fn_name, 1)
   end
 
-  def benchmark_runner(mod, p) do
-    queue_pid = spawn(fn -> queue_server(%{qsucc: [], qdisc: []}) end)
-    coverage_pid = spawn(fn -> coverage_server(MapSet.new()) end)
+  def benchmark_runner(mod, p, use_scheduler, calc_mask) do
+    queue_pid =
+      if(use_scheduler, do: spawn(fn -> queue_server(%{qsucc: [], qdisc: []}) end), else: nil)
 
-    fuzz_loop({queue_pid, coverage_pid, mod, p})
+    coverage_pid =
+      if(use_scheduler, do: spawn(fn -> coverage_server(MapSet.new()) end), else: nil)
+
+    fuzz_loop({queue_pid, coverage_pid, mod, p, use_scheduler, calc_mask})
   end
 end

@@ -23,7 +23,7 @@ defmodule NumberChecker do
     letters = String.graphemes(str)
 
     if "b" in letters do
-      if Enum.count(letters, fn letter -> letter == "a" end) > 5 do
+      if Enum.count(letters, fn letter -> letter == "a" end) > 3 do
         raise "BAD"
       end
     end
@@ -84,6 +84,17 @@ defmodule NumberChecker do
       :c
     else
       :d
+    end
+  end
+
+  def check_att(string) do
+    if String.starts_with?(string, "ATT") do
+      case string do
+        "ATT3" -> raise "BAD"
+        _ -> :good
+      end
+    else
+      :good
     end
   end
 end

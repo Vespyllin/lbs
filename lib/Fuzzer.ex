@@ -78,6 +78,7 @@ defmodule Fuzzer do
     mutated_input
   end
 
+  # Finds an index where the mutation is allowed
   def random_ok_to_mutate(mask, mutation) do
     allowed =
       mask
@@ -107,7 +108,14 @@ defmodule Fuzzer do
       Enum.reduce(1..num_mutations, {input, mask}, fn _, {curr_input, curr_mask} ->
         mutation = Enum.random(full_mask)
 
-        case random_ok_to_mutate(curr_mask, mutation) do
+        mutate_idx =
+          if is_nil(mask) do
+            :rand.uniform(max(1, String.length(input))) - 1
+          else
+            random_ok_to_mutate(curr_mask, mutation)
+          end
+
+        case mutate_idx do
           nil ->
             {curr_input, curr_mask}
 

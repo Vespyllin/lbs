@@ -11,7 +11,7 @@ defmodule Injector do
     mod_name
   end
 
-  def _instrument(source_file, fn_name, arity, dest_path \\ nil, source_code \\ false)
+  def out(source_file, fn_name, arity \\ 1, dest_path \\ nil, source_code \\ false)
       when is_atom(fn_name) and is_number(arity) do
     try do
       unless !dest_path || File.dir?(dest_path),

@@ -1,9 +1,6 @@
 require PropEl
 
 defmodule Bench do
-  # 5 Minutes
-  @timeout 5000
-
   defp run_with_timeout(fn_ref, timeout) do
     self = self()
     fuzzer_pid = spawn(fn -> send(self, fn_ref.()) end)
@@ -17,120 +14,160 @@ defmodule Bench do
     end
   end
 
-  def time({loc, fn_name, property}, iterations \\ 5) do
+  def run(suite, opts, iterations, timeout) do
+    suite
+    |> Enum.map(fn test_case -> time(test_case, opts, iterations, timeout) end)
+    |> summary()
+    |> print_summaries()
+  end
+
+  def time({loc, fn_name, property}, {scheduler, mask}, iterations, timeout) do
     # Instrument and compile target module once
-    IO.puts("Injecting fuzzer code into #{loc}.")
     mod = PropEl.benchmark_prep(loc, fn_name)
 
-    IO.puts("Running #{iterations} fuzzing loops with a #{floor(@timeout / 1000)}s timeout.")
+    IO.puts(
+      "Running #{iterations} fuzzing loops with" <>
+        " scheduling #{if(scheduler, do: "enabled", else: "disabled")} and masking #{if(mask, do: "enabled", else: "disabled")}," <>
+        " gated by a #{floor(timeout / 1000)}s timeout for #{to_string(fn_name)}/1."
+    )
 
     res =
       1..iterations
       |> Task.async_stream(
-        fn idx ->
-          IO.puts("Spawning loop #{idx}.")
-
+        fn _idx ->
           :timer.tc(fn ->
-            run_with_timeout(fn -> PropEl.benchmark_runner(mod, property) end, @timeout)
+            run_with_timeout(
+              fn ->
+                # IO.puts("Spawning loop #{idx}.")
+                res = PropEl.benchmark_runner(mod, property, scheduler, mask)
+                # IO.puts("Loop #{idx} completed.")
+                res
+              end,
+              timeout
+            )
           end)
         end,
         max_concurrency: System.schedulers_online(),
         timeout: :infinity
       )
-      |> Enum.with_index()
-      |> Enum.map(fn {{:ok, result}, idx} ->
-        IO.puts("Loops finished: #{idx + 1}")
+      |> Enum.map(fn {:ok, result} ->
         result
       end)
 
-    IO.puts("Printing results.")
+    :code.purge(mod)
+    :code.delete(mod)
+    # IO.puts("Test case completed.")
 
-    {Path.basename(loc, ".ex") <> "::" <> to_string(fn_name), res}
-  end
-
-  def test_suite(suite, iterations \\ 5) do
-    suite
-    |> Enum.map(fn test_case -> time(test_case, iterations) end)
-    |> summary()
-    |> print_summaries()
+    {to_string(fn_name), res}
   end
 
   def summary(suite_res) do
     suite_res
     |> Enum.map(fn {name, results} ->
-      {bugs_found, total_time, min_time, max_time, total_iter, min_iter, max_iter} =
-        Enum.reduce(results, {0, 0, :infinity, 0, 0, :infinity, 0}, fn {time, res},
-                                                                       {bugs_found, total_time,
-                                                                        min_time, max_time,
-                                                                        total_iter, min_iter,
-                                                                        max_iter} ->
-          {bugs_found, run_iters} =
+      {bugs_found, total_time, min_time, max_time, total_iter, min_iter, max_iter, time_dist,
+       iter_dist} =
+        Enum.reduce(results, {0, 0, :infinity, 0, 0, :infinity, 0, [], []}, fn {time, res},
+                                                                               {bugs_found,
+                                                                                total_time,
+                                                                                min_time,
+                                                                                max_time,
+                                                                                total_iter,
+                                                                                min_iter,
+                                                                                max_iter,
+                                                                                time_dist,
+                                                                                iter_dist} ->
+          {bugs_found, run_iters, found} =
             case res do
-              {:bug, iter, _path_ids, _input, _res, _quality} -> {bugs_found + 1, iter}
-              _ -> {bugs_found, 0}
+              {:bug, iter, _path_ids, _input, _res, _quality} -> {bugs_found + 1, iter, true}
+              _ -> {bugs_found, 0, false}
             end
 
           total_iter = total_iter + run_iters
-
           min_iter = min(min_iter, run_iters)
-
           max_iter = max(max_iter, run_iters)
 
-          total_time = total_time + time
+          adj_time = if(found, do: time, else: 0)
+          total_time = total_time + adj_time
+          min_time = min(min_time, adj_time)
+          max_time = max(max_time, adj_time)
 
-          min_time = min(min_time, time)
-          max_time = max(max_time, time)
-          {bugs_found, total_time, min_time, max_time, total_iter, min_iter, max_iter}
+          time_dist =
+            if(found) do
+              [time | time_dist]
+            else
+              time_dist
+            end
+
+          iter_dist =
+            if(found) do
+              [run_iters | iter_dist]
+            else
+              iter_dist
+            end
+
+          {bugs_found, total_time, min_time, max_time, total_iter, min_iter, max_iter, time_dist,
+           iter_dist}
         end)
 
-      {name, bugs_found, total_time, min_time, max_time, total_time / length(results), total_iter,
-       min_iter, max_iter, total_iter}
+      {name, bugs_found, total_time, min_time, max_time, total_time / max(bugs_found, 1),
+       total_iter, min_iter, max_iter, total_iter / max(bugs_found, 1), time_dist, iter_dist}
     end)
   end
 
   def print_summaries(summaries) do
     # Print header
-    IO.puts(String.duplicate("-", 163))
+    sep_len = 103
+    IO.puts(String.duplicate("-", sep_len))
 
     :io.format(
-      "~-35s | ~11s | ~11s | ~11s | ~11s | ~11s | ~11s | ~11s | ~11s | ~11s~n",
-      [
-        "Name",
-        "Bugs",
-        "Total (s)",
-        "Min(s)",
-        "Max(s)",
-        "Avg(s)",
-        "Total(iter)",
-        "Min(iter)",
-        "Max(iter)",
-        "Avg(iter)"
-      ]
+      "~-30s | ~5s | ~6s | ~6s | ~6s | ~9s | ~9s | ~9s |~n",
+      ["Name", "Bugs", "Min(s)", "Max(s)", "Avg(s)", "Min(iter)", "Max(iter)", "Avg(iter)"]
     )
 
-    IO.puts(String.duplicate("-", 163))
-    summaries |> Enum.each(&print_summary/1)
-    IO.puts(String.duplicate("-", 163))
+    IO.puts(String.duplicate("-", sep_len))
+
+    summaries
+    |> Enum.each(fn x ->
+      print_summary(x)
+      {_, _, _, _, _, _, _, _, _, _, time_dist, iter_dist} = x
+      IO.puts(String.duplicate("-", sep_len))
+
+      IO.puts(
+        "times: [" <>
+          (time_dist
+           |> Enum.map(fn x -> x / 1_000_000 end)
+           |> Enum.sort()
+           |> Enum.join(", ")) <> "]"
+      )
+
+      IO.puts(
+        "iters: [" <>
+          (iter_dist
+           |> Enum.sort()
+           |> Enum.join(", ")) <> "]"
+      )
+
+      IO.puts(String.duplicate("-", sep_len))
+    end)
   end
 
   def print_summary(
-        {name, bugs_found, total_time, min_time, max_time, avg_time, total_iter, min_iter,
-         max_iter, avg_iter}
+        {name, bugs_found, _total_time, min_time, max_time, avg_time, _total_iter, min_iter,
+         max_iter, avg_iter, _time_dist, _iter_dist}
       ) do
-    # Print values
+    t = 1_000_000
+
     :io.format(
-      "~-35s | ~11w | ~11w | ~11w | ~11w | ~11w | ~11w | ~11w | ~11w | ~11w~n",
+      "~-30s | ~5w | ~6w | ~6w | ~6w | ~9w | ~9w | ~9w |~n",
       [
         name,
         bugs_found,
-        total_time / 1_000_000,
-        min_time / 1_000_000,
-        max_time / 1_000_000,
-        avg_time / 1_000_000,
-        total_iter,
+        floor(min_time / t),
+        floor(max_time / t),
+        floor(avg_time / t),
         min_iter,
         max_iter,
-        avg_iter
+        floor(avg_iter)
       ]
     )
   end
