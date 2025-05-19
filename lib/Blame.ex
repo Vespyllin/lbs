@@ -1,5 +1,5 @@
 defmodule Blame do
-  def blame(ast, cause_ids, fn_name, arity) do
+  def blame(ast, cause_ids, fn_name, arity \\ 1) do
     traverse(ast, {0, 0, "S"}, {cause_ids, fn_name, arity})
   end
 

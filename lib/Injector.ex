@@ -1,7 +1,7 @@
 defmodule Injector do
   @fuzz_target :fuzz_target
 
-  def instrument(ast, fn_name, arity)
+  def instrument(ast, fn_name, arity \\ 1)
       when is_atom(fn_name) and is_number(arity) do
     [{mod_name, _}] =
       ast

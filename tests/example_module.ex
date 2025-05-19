@@ -22,13 +22,9 @@ defmodule NumberChecker do
   def check_string(str) do
     letters = String.graphemes(str)
 
-    if String.length(str) > 10 do
-      if "b" in letters do
-        if "a" in letters do
-          if String.contains?(str, "bad") do
-            raise "BAD"
-          end
-        end
+    if "b" in letters do
+      if Enum.count(letters, fn letter -> letter == "a" end) > 5 do
+        raise "BAD"
       end
     end
 
@@ -36,7 +32,7 @@ defmodule NumberChecker do
   end
 
   def check_other_string(str) do
-    if String.ends_with?(str, "c"), do: (raise "Bad string"), else: :good
+    if String.ends_with?(str, "c"), do: raise("Bad string"), else: :good
   end
 
   def test2(param) do

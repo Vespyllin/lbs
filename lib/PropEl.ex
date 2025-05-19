@@ -1,14 +1,12 @@
-defmodule PropEl do
-  require Blame
-  require Fuzzer
-  require Injector
+require Blame
+require Fuzzer
+require Injector
 
-  @succ_energy 100_000
+defmodule PropEl do
+  @succ_energy 1000
   @disc_energy 5
   @mutation_count 1
-
-  @fuzz_atoms [:fuzz_number, :fuzz_string]
-  @max_string_size 128
+  @max_string_size 1024
 
   defp contained?(sublist, list) do
     sublist_length = length(sublist)
@@ -117,7 +115,7 @@ defmodule PropEl do
     end
   end
 
-  defp dequeue_input(server_pid, input_type) do
+  defp dequeue_input(server_pid) do
     send(server_pid, {:dequeue, self()})
 
     {input, seed_mask, quality} =
@@ -135,7 +133,7 @@ defmodule PropEl do
 
         # Generate randomly
         nil ->
-          {Fuzzer.gen(input_type, :rand.uniform(@max_string_size)), nil, :random}
+          {Fuzzer.gen(:rand.uniform(@max_string_size)), nil, :random}
       end
 
     {input, seed_mask, quality}
@@ -172,9 +170,9 @@ defmodule PropEl do
 
   defp fuzz_loop(config, iter \\ 1)
 
-  defp fuzz_loop(config = {queue_pid, coverage_pid, mod, input_type, p}, iter) do
+  defp fuzz_loop(config = {queue_pid, coverage_pid, mod, p}, iter) do
     # Get next input
-    {input, seed_mask, quality} = dequeue_input(queue_pid, input_type)
+    {input, seed_mask, quality} = dequeue_input(queue_pid)
 
     # Run function
     {res, path_ids} = apply(mod, :hook, [[input]])
@@ -189,77 +187,70 @@ defmodule PropEl do
     end
   end
 
-  def propel(source_file, fn_name, arity, input_type, p) do
-    unless arity == 1 do
-      IO.puts(IO.ANSI.red() <> "Can only fuzz functions with 1 parameter." <> IO.ANSI.reset())
-
-      System.halt(1)
-    end
-
-    unless input_type in @fuzz_atoms do
-      fuzz_atoms_str = Enum.map_join(@fuzz_atoms, ", ", &":#{&1}")
-
-      IO.puts(
-        "" <>
-          IO.ANSI.red() <>
-          "Select an input type from the following options: [#{fuzz_atoms_str}]" <>
-          IO.ANSI.reset()
-      )
-
-      System.halt(1)
-    end
-
-    # Instrument fuzzing framework
+  def propel(source_file, fn_name, p, print) do
+    # Generate AST and run fuzzer
     ast =
       source_file
       |> File.read!()
       |> Code.string_to_quoted!()
 
-    IO.puts("Injecting fuzzing framework...")
-    mod = Injector.instrument(ast, fn_name, arity)
+    if(print) do
+      IO.puts("Injecting fuzzing framework...")
+    end
+
+    mod = Injector.instrument(ast, fn_name)
 
     # Spawn state servers
     queue_pid = spawn(fn -> queue_server(%{qsucc: [], qdisc: []}) end)
     coverage_pid = spawn(fn -> coverage_server(MapSet.new()) end)
 
-    # Return results
-    IO.puts("Initiating fuzzing loop...\n")
-
-    case fuzz_loop({queue_pid, coverage_pid, mod, input_type, p}) do
-      {:bug, iter, path_ids, input, res, quality} ->
-        IO.puts(
-          "Bug found at iter ##{iter} with " <>
-            inspect(quality) <>
-            " input " <>
-            IO.ANSI.blue() <>
-            case input_type do
-              :fuzz_string -> inspect(input)
-              :fuzz_number -> input
-            end <>
-            IO.ANSI.reset() <>
-            " (trimmed: " <>
-            IO.ANSI.blue() <>
-            case input_type do
-              :fuzz_string -> inspect(trim_input(mod, input, path_ids))
-              :fuzz_number -> "NOT IMPLEMENTED"
-            end <>
-            IO.ANSI.reset() <>
-            ")" <>
-            IO.ANSI.reset() <>
-            " yielding result:"
-        )
-
-        IO.puts(IO.ANSI.red() <> inspect(res) <> IO.ANSI.reset() <> "\n")
-
-        if(length(path_ids) > 0) do
-          IO.puts("===== Traversed Branches =====")
-          Blame.blame(ast, path_ids, fn_name, arity)
-        end
-        :bug
-
-      {:no_bug} ->
-        IO.puts("No bugs found.")
-        :no_bug
+    if(print) do
+      IO.puts("Initiating fuzzing loop...\n")
     end
+
+    return_val =
+      {:bug, iter, path_ids, input, res, quality} = fuzz_loop({queue_pid, coverage_pid, mod, p})
+
+    if(print) do
+      IO.puts(
+        "Bug found at iter ##{iter} with " <>
+          inspect(quality) <>
+          " input " <>
+          IO.ANSI.blue() <>
+          inspect(input) <>
+          IO.ANSI.reset() <>
+          " (trimmed: " <>
+          IO.ANSI.blue() <>
+          inspect(trim_input(mod, input, path_ids)) <>
+          IO.ANSI.reset() <>
+          ")" <>
+          IO.ANSI.reset() <>
+          " yielding result:"
+      )
+
+      IO.puts(IO.ANSI.red() <> inspect(res) <> IO.ANSI.reset() <> "\n")
+
+      if(length(path_ids) > 0) do
+        IO.puts("===== Traversed Branches =====")
+        Blame.blame(ast, path_ids, fn_name)
+      end
+    end
+
+    return_val
+  end
+
+  def benchmark_prep(source_file, fn_name) do
+    # return module
+    source_file
+    |> File.read!()
+    |> Code.string_to_quoted!()
+    |> Injector.instrument(fn_name, 1)
+  end
+
+  def benchmark_runner(mod, p) do
+    queue_pid = spawn(fn -> queue_server(%{qsucc: [], qdisc: []}) end)
+    coverage_pid = spawn(fn -> coverage_server(MapSet.new()) end)
+
+    fuzz_loop({queue_pid, coverage_pid, mod, p})
   end
 end

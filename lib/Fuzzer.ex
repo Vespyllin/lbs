@@ -1,5 +1,3 @@
-import Bitwise
-
 defmodule Fuzzer do
   # Strings
   defp delete_char_at(str, index) when is_binary(str) do
@@ -25,30 +23,6 @@ defmodule Fuzzer do
     |> List.replace_at(index, random_char)
     |> Enum.join()
   end
-
-  # Numbers
-  defp flip_random_bit(num) when is_number(num) do
-    random_bit_idx = :rand.uniform(get_bit_width(num)) - 1
-    Bitwise.bxor(num, 1 <<< random_bit_idx)
-  end
-
-  defp get_bit_width(num) when is_number(num) do
-    num
-    |> abs()
-    |> :binary.encode_unsigned()
-    |> byte_size()
-    |> Kernel.*(8)
-  end
-
-  defp flip_all_bits(num) when is_integer(num), do: Bitwise.bnot(num)
-
-  defp div(num) when is_integer(num), do: trunc(num >>> :rand.uniform(get_bit_width(num)))
-
-  defp mult(num) when is_integer(num), do: trunc(num <<< :rand.uniform(get_bit_width(num)))
-
-  defp twos_complement(num) when is_integer(num), do: Bitwise.bnot(num) + 1
-
-  defp generate_num(size), do: :rand.uniform(1 <<< size) - 1
 
   def mutate(input, n, mask) when is_binary(input) do
     full_mask = [:flip, :insert, :delete]
@@ -156,27 +130,8 @@ defmodule Fuzzer do
     mutated_input
   end
 
-  def _mutate(item, n, _mask) when is_number(item) do
-    mutators = [
-      # &inc/1,
-      # &dec/1,
-      &div/1,
-      &mult/1,
-      &flip_all_bits/1,
-      &flip_random_bit/1,
-      &twos_complement/1
-    ]
-
-    Enum.reduce(1..n, item, fn _, acc ->
-      Enum.random(mutators).(acc)
-    end)
-  end
-
-  def gen(gen_type, str_size) do
-    case gen_type do
-      :fuzz_number -> generate_num(128)
-      :fuzz_string -> for _ <- 1..str_size, into: "", do: <<Enum.random(32..126)>>
-    end
+  def gen(str_size) do
+    for _ <- 1..str_size, into: "", do: <<Enum.random(32..126)>>
   end
 
   def compute_mask(check_fn, input) when is_binary(input) do
