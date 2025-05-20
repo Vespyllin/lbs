@@ -24,7 +24,7 @@ defmodule Fuzzer do
     |> Enum.join()
   end
 
-  def mutate(input, n, mask) when is_binary(input) do
+  def mutate(input, mask) when is_binary(input) do
     full_mask = [:flip, :insert, :delete]
 
     mutators = %{
@@ -33,49 +33,40 @@ defmodule Fuzzer do
       delete: &delete_char_at/2
     }
 
-    {mutated_input, _} =
-      Enum.reduce(1..n, {input, mask}, fn _, {acc_input, acc_mask} ->
-        graphemes = String.graphemes(acc_input)
+    graphemes = String.graphemes(input)
 
-        Enum.with_index(graphemes)
-        |> Enum.reduce({acc_input, acc_mask}, fn {_, idx}, {curr_input, curr_mask} ->
-          allowed =
-            if curr_mask do
-              Enum.at(curr_mask, idx, [])
-            else
-              [Enum.random(full_mask)]
+    Enum.with_index(graphemes)
+    |> Enum.reduce({input, mask}, fn {_, idx}, {curr_input, curr_mask} ->
+      allowed =
+        if curr_mask do
+          Enum.at(curr_mask, idx, [])
+        else
+          [Enum.random(full_mask)]
+        end
+
+      if allowed == [] do
+        {curr_input, curr_mask}
+      else
+        mutator_key = Enum.random(allowed)
+        mutator = Map.get(mutators, mutator_key)
+
+        new_input = mutator.(curr_input, idx)
+
+        new_mask =
+          if curr_mask do
+            case mutator_key do
+              :insert -> List.insert_at(curr_mask, idx, full_mask)
+              :delete -> List.delete_at(curr_mask, idx)
+              _ -> curr_mask
             end
-
-          if allowed == [] do
-            {curr_input, curr_mask}
           else
-            mutator_key = Enum.random(allowed)
-            mutator = Map.get(mutators, mutator_key)
-
-            new_input = mutator.(curr_input, idx)
-
-            new_mask =
-              if curr_mask do
-                case mutator_key do
-                  :insert ->
-                    List.insert_at(curr_mask, idx, full_mask)
-
-                  :delete ->
-                    List.delete_at(curr_mask, idx)
-
-                  _ ->
-                    curr_mask
-                end
-              else
-                nil
-              end
-
-            {new_input, new_mask}
+            nil
           end
-        end)
-      end)
 
-    mutated_input
+        {new_input, new_mask}
+      end
+    end)
+    |> elem(0)
   end
 
   # Finds an index where the mutation is allowed

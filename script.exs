@@ -1,39 +1,36 @@
 # PropEl.propel(
 #   "./tests/example_module.ex",
-#   :check_string,
-#   fn res, _input ->
-#     res == :good
-#     # false
-#   end,
-#   false
+#   :check_att,
+#   fn res, _input -> res == :ok end,
+#   true
 # )
-# |> IO.inspect()
 
-Injector.out("./tests/example_module.ex", :check_att, 1, "./", true)
+# Injector.out("./tests/example_module.ex", :check_string, "./", true)
 
-# test_one =
-#   {"./tests/custom_benchmarks.ex", :constructive_branch, fn res, _input -> res == :ok end}
+test_1 = {"./tests/custom_benchmarks.ex", :unrelated_branch, fn res, _input -> res == :ok end}
+test_2 = {"./tests/custom_benchmarks.ex", :constructive_branch, fn res, _input -> res == :ok end}
+test_2 = {"./tests/example_module.ex", :check_att, fn res, _input -> res == :ok end}
 
-# _test_two =
-#   {"./tests/custom_benchmarks.ex", :constructive_branch_stall, fn res, _input -> res == :ok end}
+t = 1000
+iters = 12
 
-# cases = [test_one]
+timeout1 = 60 * t
+Bench.run(test_1, {true, true, true}, iters, timeout1)
+# Bench.run(test_1, {true, true, false}, iters, timeout1)
+# Bench.run(test_2, {true, true, true}, iters, timeout1)
+# Bench.run(test_2, {true, true, false}, iters, timeout1)
 
-# t = 1000
-
-# iters = 12
-
-# timeout1 = 30 * t
-# Bench.run(cases, {true, true}, iters, timeout1)
-# Bench.run(cases, {true, false}, iters, timeout1)
-# Bench.run(cases, {false, false}, iters, timeout1)
+# Bench.run(test_1, {true, false, false}, iters, timeout1)
+# Bench.run(test_1, {false, false, false}, iters, timeout1)
 
 # # timeout2 = 180 * t
-# # Bench.run(cases, {true, true}, iters, timeout2)
-# # Bench.run(cases, {true, false}, iters, timeout2)
-# # Bench.run(cases, {false, false}, iters, timeout2)
+# # Bench.run(test_1, {true, true, true}, iters, timeout2)
+# # Bench.run(test_1, {true, true, false}, iters, timeout2)
+# # Bench.run(test_1, {true, false, false}, iters, timeout2)
+# # Bench.run(test_1, {false, false, false}, iters, timeout2)
 
 # # timeout3 = 6000 * t
-# # Bench.run(cases, {true, true}, iters, timeout3)
-# # Bench.run(cases, {true, false}, iters, timeout3)
-# # Bench.run(cases, {false, false}, iters, timeout3)
+# # Bench.run(test_1, {true, true, true}, iters, timeout3)
+# # Bench.run(test_1, {true, true, false}, iters, timeout3)
+# # Bench.run(test_1, {true, false, false}, iters, timeout3)
+# # Bench.run(test_1, {false, false, false}, iters, timeout3)

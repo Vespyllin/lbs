@@ -14,33 +14,39 @@ defmodule Bench do
     end
   end
 
-  def run(suite, opts, iterations, timeout) do
-    suite
-    |> Enum.map(fn test_case -> time(test_case, opts, iterations, timeout) end)
+  def run(test, opts, iterations, timeout) do
+    [time(test, opts, iterations, timeout)]
     |> summary()
     |> print_summaries()
   end
 
-  def time({loc, fn_name, property}, {scheduler, mask}, iterations, timeout) do
+  def time({loc, fn_name, property}, {scheduler, mask, trim}, iterations, timeout, print \\ false) do
     # Instrument and compile target module once
     mod = PropEl.benchmark_prep(loc, fn_name)
 
     IO.puts(
       "Running #{iterations} fuzzing loops with" <>
-        " scheduling #{if(scheduler, do: "enabled", else: "disabled")} and masking #{if(mask, do: "enabled", else: "disabled")}," <>
+        " scheduling: #{if(scheduler, do: "✔️", else: "✖️")} , masking: #{if(mask, do: "✔️", else: "✖️")} , trimming: #{if(trim, do: "✔️", else: "✖️")} ," <>
         " gated by a #{floor(timeout / 1000)}s timeout for #{to_string(fn_name)}/1."
     )
 
     res =
       1..iterations
       |> Task.async_stream(
-        fn _idx ->
+        fn idx ->
           :timer.tc(fn ->
             run_with_timeout(
               fn ->
-                # IO.puts("Spawning loop #{idx}.")
-                res = PropEl.benchmark_runner(mod, property, scheduler, mask)
-                # IO.puts("Loop #{idx} completed.")
+                if print do
+                  IO.puts("Spawning loop #{idx}.")
+                end
+
+                res = PropEl.benchmark_runner(mod, property, scheduler, mask, trim)
+
+                if print do
+                  IO.puts("Loop #{idx} completed.")
+                end
+
                 res
               end,
               timeout

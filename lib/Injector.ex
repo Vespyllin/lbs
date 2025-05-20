@@ -1,18 +1,16 @@
 defmodule Injector do
   @fuzz_target :fuzz_target
 
-  def instrument(ast, fn_name, arity \\ 1)
-      when is_atom(fn_name) and is_number(arity) do
+  def instrument(ast, fn_name) do
     [{mod_name, _}] =
       ast
-      |> handle_ast({fn_name, arity})
+      |> handle_ast({fn_name, 1})
       |> Code.compile_quoted()
 
     mod_name
   end
 
-  def out(source_file, fn_name, arity \\ 1, dest_path \\ nil, source_code \\ false)
-      when is_atom(fn_name) and is_number(arity) do
+  def out(source_file, fn_name, dest_path \\ nil, source_code \\ false) do
     try do
       unless !dest_path || File.dir?(dest_path),
         do: raise("2nd argument must be an existing directory.")
@@ -24,7 +22,7 @@ defmodule Injector do
       read_res = File.read!(source_file)
       ast = Code.string_to_quoted!(read_res)
 
-      modified_ast = handle_ast(ast, {fn_name, arity})
+      modified_ast = handle_ast(ast, {fn_name, 1})
 
       [{mod_name, binary}] = Code.compile_quoted(modified_ast)
       IO.puts("Modified file compiled and loaded into the environment as \"#{mod_name}\".")

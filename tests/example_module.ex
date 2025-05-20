@@ -19,20 +19,8 @@ defmodule NumberChecker do
   #   end
   # end
 
-  # def check_string(str) do
-  #   letters = String.graphemes(str)
-
-  #   if "b" in letters do
-  #     if Enum.count(letters, fn letter -> letter == "a" end) > 3 do
-  #       raise "BAD"
-  #     end
-  #   end
-
-  #   :good
-  # end
-
   # def check_other_string(str) do
-  #   if String.ends_with?(str, "c"), do: raise("Bad string"), else: :good
+  #   if String.ends_with?(str, "c"), do: raise("Bad string"), else: :ok
   # end
 
   # def test2(param) do
@@ -86,15 +74,38 @@ defmodule NumberChecker do
   #     :d
   #   end
   # end
-
-  def check_att(string) do
-    if String.starts_with?(string, "ATT") do
-      case string do
-        "ATT3" -> raise "BAD"
-        _ -> :good
+  def check_string(str) do
+    x = fn y ->
+      if y do
+        :good
       end
-    else
-      :good
+
+      for n <- 1..100 do
+        if y do
+          :good
+        end
+      end
     end
+
+    # letters = String.graphemes(str)
+
+    # if "b" in letters do
+    #   if Enum.count(letters, fn letter -> letter == "a" end) > 3 do
+    #     raise "BAD"
+    #   end
+    # end
+
+    # :ok
   end
+
+  # def check_att(string) do
+  #   if String.starts_with?(string, "ATT") do
+  #     case string do
+  #       "ATT3" -> raise "BAD"
+  #       _ -> :ok
+  #     end
+  #   else
+  #     :ok
+  #   end
+  # end
 end

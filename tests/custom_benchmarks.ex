@@ -1,9 +1,29 @@
 defmodule BenchmarkTests do
-  def constructive_branch(data) do
-    if String.contains?(data, "aa") do
-      if String.contains?(data, "bb") do
-        if String.split(data, "bb") |> hd() |> String.ends_with?("aa") do
-          raise "Crash: fragile sequence hit"
+  def random_crash(str) do
+    if String.contains?(str, "bad") do
+      raise "Crash"
+    end
+
+    :ok
+  end
+
+  def constructive_branch_mult(string) do
+    if String.contains?(string, "aa") do
+      if String.contains?(string, "bb") do
+        if String.contains?(string, "aaaa") do
+          raise "Crash"
+        end
+
+        if String.contains?(string, "dddd") do
+          :ok
+        end
+
+        if String.contains?(string, "eeee") do
+          :ok
+        end
+
+        if String.contains?(string, "ffff") do
+          :ok
         end
       end
     end
@@ -11,13 +31,12 @@ defmodule BenchmarkTests do
     :ok
   end
 
-  def constructive_branch_stall(data) do
-    _res = Enum.reduce(1..100_000, fn x, acc -> acc + :rand.uniform(x) end)
-
+  def constructive_branch(data) do
     if String.contains?(data, "aa") do
       if String.contains?(data, "bb") do
-        if String.split(data, "bb") |> hd() |> String.ends_with?("aa") do
-          raise "Crash: fragile sequence hit"
+        # aa before bb
+        if String.split(data, "bb") |> hd() |> String.contains?("aa") do
+          raise "Crash"
         end
       end
     end
@@ -26,24 +45,12 @@ defmodule BenchmarkTests do
   end
 
   def unrelated_branch(data) do
-    if String.contains?(data, "aa") do
-      if String.contains?(data, "bb") do
-        if String.split(data, "bb") |> hd() |> String.ends_with?("aa") do
-          raise "Crash: fragile sequence hit"
-        end
-      end
-    end
-
-    :ok
-  end
-
-  def unrelated_branch_stall(data) do
-    _res = Enum.reduce(1..100_000, fn x, acc -> acc + :rand.uniform(x) end)
+    letters = String.graphemes(data)
 
     if String.contains?(data, "aa") do
       if String.contains?(data, "bb") do
-        if String.split(data, "bb") |> hd() |> String.ends_with?("aa") do
-          raise "Crash: fragile sequence hit"
+        if Enum.count(letters, fn letter -> letter == "c" end) / letters >= 0.5 do
+          raise "Crash"
         end
       end
     end

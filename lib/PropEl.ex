@@ -5,8 +5,7 @@ require Injector
 defmodule PropEl do
   @succ_energy 1000
   @disc_energy 5
-  @mutation_count 1
-  @max_string_size 8
+  @max_string_size 32
 
   defp contained?(sublist, list) do
     sublist_length = length(sublist)
@@ -21,26 +20,30 @@ defmodule PropEl do
     end
   end
 
-  defp trim_input(mod, input, path_ids) do
+  defp trim_input(mod, input, path_ids, min_len \\ 0) do
     compute_masks = fn input ->
       Fuzzer.compute_mask(fn mutated_input -> check_fn(mod, mutated_input, path_ids) end, input)
     end
 
     trim_rec = fn trim_rec, current_input ->
-      masks = compute_masks.(current_input)
+      if(String.length(current_input) <= min_len) do
+        current_input
+      else
+        masks = compute_masks.(current_input)
 
-      case Enum.find_index(masks, fn mask -> :delete in mask end) do
-        nil ->
-          current_input
-
-        index ->
-          new_input =
+        case Enum.find_index(masks, fn mask -> :delete in mask end) do
+          nil ->
             current_input
-            |> String.graphemes()
-            |> List.delete_at(index)
-            |> Enum.join()
 
-          trim_rec.(trim_rec, new_input)
+          index ->
+            new_input =
+              current_input
+              |> String.graphemes()
+              |> List.delete_at(index)
+              |> Enum.join()
+
+            trim_rec.(trim_rec, new_input)
+        end
       end
     end
 
@@ -115,47 +118,40 @@ defmodule PropEl do
     end
   end
 
+  defp dequeue_input(server_pid) when is_nil(server_pid) do
+    {Fuzzer.gen(:rand.uniform(@max_string_size)), nil, :random}
+  end
+
   defp dequeue_input(server_pid) do
-    if server_pid do
-      send(server_pid, {:dequeue, self()})
+    send(server_pid, {:dequeue, self()})
 
-      {input, seed_mask, quality} =
-        receive do
-          # Mutate only those inputs we're fuzzing
-          {:ok, seed, seed_mask, queue} ->
-            mutation =
-              if(queue == :successful) do
-                Fuzzer.mutate(seed, @mutation_count, seed_mask)
-              else
-                Fuzzer.havoc(seed, seed_mask)
-              end
+    receive do
+      # Mutate only quality inputs
+      {:ok, seed, seed_mask, queue} ->
+        mutation =
+          if(queue == :successful,
+            do: Fuzzer.mutate(seed, seed_mask),
+            else: Fuzzer.havoc(seed, seed_mask)
+          )
 
-            {mutation, seed_mask, queue}
+        {mutation, seed_mask, queue}
 
-          # Generate randomly
-          nil ->
-            {Fuzzer.gen(:rand.uniform(@max_string_size)), nil, :random}
-        end
-
-      {input, seed_mask, quality}
-    else
-      {Fuzzer.gen(:rand.uniform(@max_string_size)), nil, :random}
+      # Generate randomly
+      nil ->
+        {Fuzzer.gen(:rand.uniform(@max_string_size)), nil, :random}
     end
   end
 
-  defp queue_input(_, _, _, path_ids, _, _, _, _) when length(path_ids) == 0 do
+  defp queue_input(_, path_ids, _, _, _) when length(path_ids) == 0 do
     nil
   end
 
   defp queue_input(
-         coverage_pid,
-         queue_pid,
-         mod,
+         {coverage_pid, queue_pid, mod, compute_mask, trim},
          path_ids,
          input,
          seed_mask,
-         quality,
-         compute_mask
+         quality
        ) do
     path_hash = Enum.join(path_ids, "/")
 
@@ -165,17 +161,20 @@ defmodule PropEl do
     # Queue accordingly
     receive do
       :new ->
+        clean_input =
+          if(trim, do: trim_input(mod, input, path_ids, @max_string_size / 2), else: input)
+
         mask =
           if compute_mask do
             Fuzzer.compute_mask(
               fn mutated_input -> check_fn(mod, mutated_input, path_ids) end,
-              input
+              clean_input
             )
           else
             nil
           end
 
-        send(queue_pid, {:successful, input, mask, @succ_energy * length(path_ids)})
+        send(queue_pid, {:successful, clean_input, mask, @succ_energy * length(path_ids)})
         send(coverage_pid, {:submit, path_hash})
 
       :seen ->
@@ -187,7 +186,7 @@ defmodule PropEl do
 
   defp fuzz_loop(config, iter \\ 1)
 
-  defp fuzz_loop(config = {queue_pid, coverage_pid, mod, p, use_scheduler, calc_mask}, iter) do
+  defp fuzz_loop(config = {queue_pid, coverage_pid, mod, p, use_scheduler, calc_mask, trim}, iter) do
     # Get next input
     {input, seed_mask, quality} = dequeue_input(queue_pid)
 
@@ -199,7 +198,13 @@ defmodule PropEl do
       {:bug, iter, path_ids, input, res, quality}
     else
       if use_scheduler do
-        queue_input(coverage_pid, queue_pid, mod, path_ids, input, seed_mask, quality, calc_mask)
+        queue_input(
+          {coverage_pid, queue_pid, mod, calc_mask, trim},
+          path_ids,
+          input,
+          seed_mask,
+          quality
+        )
       end
 
       fuzz_loop(config, iter + 1)
@@ -229,7 +234,7 @@ defmodule PropEl do
 
     return_val =
       {:bug, iter, path_ids, input, res, quality} =
-      fuzz_loop({queue_pid, coverage_pid, mod, p, true, true})
+      fuzz_loop({queue_pid, coverage_pid, mod, p, true, true, true})
 
     if(print) do
       IO.puts(
@@ -264,16 +269,16 @@ defmodule PropEl do
     source_file
     |> File.read!()
     |> Code.string_to_quoted!()
-    |> Injector.instrument(fn_name, 1)
+    |> Injector.instrument(fn_name)
   end
 
-  def benchmark_runner(mod, p, use_scheduler, calc_mask) do
+  def benchmark_runner(mod, p, use_scheduler, calc_mask, trim) do
     queue_pid =
       if(use_scheduler, do: spawn(fn -> queue_server(%{qsucc: [], qdisc: []}) end), else: nil)
 
     coverage_pid =
       if(use_scheduler, do: spawn(fn -> coverage_server(MapSet.new()) end), else: nil)
 
-    fuzz_loop({queue_pid, coverage_pid, mod, p, use_scheduler, calc_mask})
+    fuzz_loop({queue_pid, coverage_pid, mod, p, use_scheduler, calc_mask, trim})
   end
 end
