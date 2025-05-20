@@ -14,13 +14,13 @@ defmodule Bench do
     end
   end
 
-  def run(test, opts, iterations, timeout) do
-    [time(test, opts, iterations, timeout)]
+  def run(test, opts, iterations, timeout, print \\ false) do
+    [time(test, opts, iterations, timeout, print)]
     |> summary()
     |> print_summaries()
   end
 
-  def time({loc, fn_name, property}, {scheduler, mask, trim}, iterations, timeout, print \\ false) do
+  def time({loc, fn_name, property}, {scheduler, mask, trim}, iterations, timeout, print) do
     # Instrument and compile target module once
     mod = PropEl.benchmark_prep(loc, fn_name)
 

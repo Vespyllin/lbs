@@ -1,9 +1,9 @@
 require Blame
-require Fuzzer
+require Mutator
 require Injector
 
 defmodule PropEl do
-  @succ_energy 1000
+  @succ_energy 100_000
   @disc_energy 5
   @max_string_size 32
 
@@ -22,7 +22,7 @@ defmodule PropEl do
 
   defp trim_input(mod, input, path_ids, min_len \\ 0) do
     compute_masks = fn input ->
-      Fuzzer.compute_mask(fn mutated_input -> check_fn(mod, mutated_input, path_ids) end, input)
+      Mutator.compute_mask(fn mutated_input -> check_fn(mod, mutated_input, path_ids) end, input)
     end
 
     trim_rec = fn trim_rec, current_input ->
@@ -119,7 +119,7 @@ defmodule PropEl do
   end
 
   defp dequeue_input(server_pid) when is_nil(server_pid) do
-    {Fuzzer.gen(:rand.uniform(@max_string_size)), nil, :random}
+    {Mutator.gen(:rand.uniform(@max_string_size)), nil, :random}
   end
 
   defp dequeue_input(server_pid) do
@@ -130,15 +130,15 @@ defmodule PropEl do
       {:ok, seed, seed_mask, queue} ->
         mutation =
           if(queue == :successful,
-            do: Fuzzer.mutate(seed, seed_mask),
-            else: Fuzzer.havoc(seed, seed_mask)
+            do: Mutator.mutate(seed, seed_mask, @max_string_size),
+            else: Mutator.havoc(seed, seed_mask)
           )
 
         {mutation, seed_mask, queue}
 
       # Generate randomly
       nil ->
-        {Fuzzer.gen(:rand.uniform(@max_string_size)), nil, :random}
+        {Mutator.gen(:rand.uniform(@max_string_size)), nil, :random}
     end
   end
 
@@ -166,7 +166,7 @@ defmodule PropEl do
 
         mask =
           if compute_mask do
-            Fuzzer.compute_mask(
+            Mutator.compute_mask(
               fn mutated_input -> check_fn(mod, mutated_input, path_ids) end,
               clean_input
             )

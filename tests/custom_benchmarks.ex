@@ -7,22 +7,22 @@ defmodule BenchmarkTests do
     :ok
   end
 
-  def constructive_branch_mult(string) do
-    if String.contains?(string, "aa") do
-      if String.contains?(string, "bb") do
-        if String.contains?(string, "aaaa") do
+  def constructive_branch_mult(str) do
+    if String.contains?(str, "aa") do
+      if String.contains?(str, "bb") do
+        if String.contains?(str, "aaaa") do
           raise "Crash"
         end
 
-        if String.contains?(string, "dddd") do
+        if String.contains?(str, "dddd") do
           :ok
         end
 
-        if String.contains?(string, "eeee") do
+        if String.contains?(str, "eeee") do
           :ok
         end
 
-        if String.contains?(string, "ffff") do
+        if String.contains?(str, "ffff") do
           :ok
         end
       end
@@ -31,11 +31,11 @@ defmodule BenchmarkTests do
     :ok
   end
 
-  def constructive_branch(data) do
-    if String.contains?(data, "aa") do
-      if String.contains?(data, "bb") do
+  def constructive_branch(str) do
+    if String.contains?(str, "ab") do
+      if String.contains?(str, "cd") do
         # aa before bb
-        if String.split(data, "bb") |> hd() |> String.contains?("aa") do
+        if String.contains?(str, "cdab") do
           raise "Crash"
         end
       end
@@ -44,12 +44,10 @@ defmodule BenchmarkTests do
     :ok
   end
 
-  def unrelated_branch(data) do
-    letters = String.graphemes(data)
-
-    if String.contains?(data, "aa") do
-      if String.contains?(data, "bb") do
-        if Enum.count(letters, fn letter -> letter == "c" end) / letters >= 0.5 do
+  def unrelated_branch(str) do
+    if String.contains?(str, "ab") do
+      if String.contains?(str, "cd") do
+        if String.contains?(str, "efgh") do
           raise "Crash"
         end
       end
