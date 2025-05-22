@@ -62,7 +62,6 @@ defmodule Bench do
 
     :code.purge(mod)
     :code.delete(mod)
-    # IO.puts("Test case completed.")
 
     {to_string(fn_name), res}
   end

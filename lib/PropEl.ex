@@ -270,7 +270,7 @@ defmodule PropEl do
   end
 
   def benchmark_prep(source_file, fn_name) do
-    # return module
+    # Return module name
     source_file
     |> File.read!()
     |> Code.string_to_quoted!()

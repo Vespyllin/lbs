@@ -100,50 +100,50 @@ defmodule Injector do
   end
 
   defp gen_hook_ast() do
-    quote do
-      defp state_server(state) do
-        receive do
-          {:request, requestor_pid} ->
-            send(requestor_pid, {:response, state})
+    [
+      quote do
+        defp state_server(state) do
+          receive do
+            {:request, requestor_pid} ->
+              send(requestor_pid, {:response, state})
 
-          id ->
-            state_server(state ++ [id])
+            id ->
+              state_server(state ++ [id])
+          end
+        end
+      end,
+      quote do
+        def hook(fuzzed_params) when is_list(fuzzed_params) do
+          state_pid = spawn(fn -> state_server([]) end)
+
+          res = apply(__MODULE__, unquote(@fuzz_target), fuzzed_params ++ [state_pid])
+
+          send(state_pid, {:request, self()})
+
+          receive do
+            {:response, list} -> {res, list}
+          end
         end
       end
-
-      def hook(fuzzed_params) when is_list(fuzzed_params) do
-        state_pid = spawn(fn -> state_server([]) end)
-
-        res = apply(__MODULE__, unquote(@fuzz_target), fuzzed_params ++ [state_pid])
-
-        send(state_pid, {:request, self()})
-
-        receive do
-          {:response, list} -> {res, list}
-        end
-      end
-    end
+    ]
   end
 
   # Handle module components
   defp handle_mod_members(stmts, fn_data) when is_list(stmts) do
-    ([gen_hook_ast()] ++
-       Enum.map(stmts, fn
-         {decl_type, meta, fn_decl} when decl_type in [:def, :defp] ->
-           #  IO.inspect({decl_type, meta, fn_decl})
+    gen_hook_ast() ++
+      Enum.map(stmts, fn
+        {decl_type, meta, fn_decl} when decl_type in [:def, :defp] ->
+          case handle_fn_def(fn_decl, fn_data) do
+            {:hit, modified_fn} ->
+              [{decl_type, meta, modified_fn}, {decl_type, meta, fn_decl}]
 
-           case handle_fn_def(fn_decl, fn_data) do
-             {:hit, modified_fn} ->
-               [{decl_type, meta, modified_fn}, {decl_type, meta, fn_decl}]
+            {:miss, _} ->
+              [{decl_type, meta, fn_decl}]
+          end
 
-             {:miss, _} ->
-               {decl_type, meta, fn_decl}
-           end
-
-         other ->
-           other
-       end))
-    |> List.flatten()
+        other ->
+          other
+      end)
   end
 
   defp handle_mod_members(stmts, fn_data) do
@@ -196,7 +196,6 @@ defmodule Injector do
   end
 
   defp handle_fn_def(pass, _) do
-    # IO.inspect(pass)
     {:miss, pass}
   end
 
