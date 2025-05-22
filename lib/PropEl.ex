@@ -3,7 +3,6 @@ require Mutator
 require Injector
 
 defmodule PropEl do
-  @succ_energy 100_000
   @disc_energy 5
   @max_string_size 32
 
@@ -31,11 +30,13 @@ defmodule PropEl do
       else
         masks = compute_masks.(current_input)
 
-        case Enum.find_index(masks, fn mask -> :delete in mask end) do
-          nil ->
+        case masks |> Enum.with_index() |> Enum.filter(fn {mask, _} -> :delete in mask end) do
+          [] ->
             current_input
 
-          index ->
+          deletable ->
+            index = deletable |> Enum.random() |> elem(1)
+
             new_input =
               current_input
               |> String.graphemes()
@@ -57,12 +58,12 @@ defmodule PropEl do
 
   defp queue_server(state) do
     receive do
-      {:successful, inputs, mask, energy} ->
-        new_state = %{state | qsucc: [{inputs, mask, energy}] ++ state.qsucc}
+      {:successful, input, mask, energy} ->
+        new_state = %{state | qsucc: [{input, mask, energy}] ++ state.qsucc}
         queue_server(new_state)
 
-      {:discard, inputs, mask, energy} ->
-        new_state = %{state | qdisc: [{inputs, mask, energy}] ++ state.qdisc}
+      {:discard, input, mask, energy} ->
+        new_state = %{state | qdisc: [{input, mask, energy}] ++ state.qdisc}
         queue_server(new_state)
 
       {:all, caller} ->
@@ -70,22 +71,22 @@ defmodule PropEl do
 
       {:dequeue, caller} ->
         case state.qsucc do
-          [{inputs, mask, energy} | rest] when energy > 1 ->
-            send(caller, {:ok, inputs, mask, :successful})
-            queue_server(%{state | qsucc: [{inputs, mask, energy - 1} | rest]})
+          [{input, mask, energy} | rest] when energy > 1 ->
+            send(caller, {:ok, input, mask, :successful})
+            queue_server(%{state | qsucc: [{input, mask, energy - 1} | rest]})
 
-          [{inputs, mask, 1} | rest] ->
-            send(caller, {:ok, inputs, mask, :successful})
+          [{input, mask, 1} | rest] ->
+            send(caller, {:ok, input, mask, :successful})
             queue_server(%{state | qsucc: rest})
 
           [] ->
             case state.qdisc do
-              [{inputs, mask, energy} | rest] when energy > 1 ->
-                send(caller, {:ok, inputs, mask, :discard})
-                queue_server(%{state | qdisc: [{inputs, mask, energy - 1} | rest]})
+              [{input, mask, energy} | rest] when energy > 1 ->
+                send(caller, {:ok, input, mask, :discard})
+                queue_server(%{state | qdisc: [{input, mask, energy - 1} | rest]})
 
-              [{inputs, mask, 1} | rest] ->
-                send(caller, {:ok, inputs, mask, :discard})
+              [{input, mask, 1} | rest] ->
+                send(caller, {:ok, input, mask, :discard})
                 queue_server(%{state | qdisc: rest})
 
               [] ->
@@ -174,12 +175,16 @@ defmodule PropEl do
             nil
           end
 
-        send(queue_pid, {:successful, clean_input, mask, @succ_energy * length(path_ids)})
+        send(
+          queue_pid,
+          {:successful, clean_input, mask, 3 ** String.length(clean_input) * length(path_ids)}
+        )
+
         send(coverage_pid, {:submit, path_hash})
 
       :seen ->
         if(quality == :successful) do
-          send(queue_pid, {:discard, input, seed_mask, @disc_energy * length(path_ids)})
+          send(queue_pid, {:discard, input, seed_mask, @disc_energy ** length(path_ids)})
         end
     end
   end

@@ -32,10 +32,9 @@ defmodule BenchmarkTests do
   end
 
   def constructive_branch(str) do
-    if String.contains?(str, "ab") do
-      if String.contains?(str, "cd") do
-        # aa before bb
-        if String.contains?(str, "cdab") do
+    if String.contains?(str, "abc") do
+      if String.contains?(str, "def") do
+        if String.contains?(str, "abcd") or String.contains?(str, "defg") do
           raise "Crash"
         end
       end
@@ -45,9 +44,9 @@ defmodule BenchmarkTests do
   end
 
   def unrelated_branch(str) do
-    if String.contains?(str, "ab") do
-      if String.contains?(str, "cd") do
-        if String.contains?(str, "efgh") do
+    if String.contains?(str, "abc") do
+      if String.contains?(str, "def") do
+        if String.contains?(str, "wxyz") or String.contains?(str, "lmno") do
           raise "Crash"
         end
       end

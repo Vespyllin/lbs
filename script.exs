@@ -1,25 +1,20 @@
-# PropEl.propel(
-#   "./tests/custom_benchmarks.ex",
-#   :unrelated_branch,
-#   fn res, _input -> res == :ok end,
-#   true
-# )
-
-# "ABC"
-# |> IO.inspect()
-# |> Mutator.mutate([[:delete], [:insert], [:insert, :flip]], 8)
-# |> IO.inspect()
+PropEl.propel(
+  "./tests/custom_benchmarks.ex",
+  :constructive_branch,
+  fn res, _input -> res == :ok end,
+  true
+)
 
 # Injector.out("./tests/example_module.ex", :check_string, "./", true)
 
-test_1 = {"./tests/custom_benchmarks.ex", :constructive_branch, fn res, _input -> res == :ok end}
+# test_1 = {"./tests/custom_benchmarks.ex", :constructive_branch, fn res, _input -> res == :ok end}
 
-t = 1000
-iters = 12
+# t = 1000
+# iters = 12
 
-timeout1 = 60 * t
-Bench.run(test_1, {true, true, true}, iters, timeout1, true)
-Bench.run(test_1, {true, true, false}, iters, timeout1)
+# timeout1 = 60 * t
+# Bench.run(test_1, {true, true, true}, iters, timeout1)
+# Bench.run(test_1, {true, true, false}, iters, timeout1)
 # Bench.run(test_2, {true, true, true}, iters, timeout1)
 # Bench.run(test_2, {true, true, false}, iters, timeout1)
 

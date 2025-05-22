@@ -36,7 +36,8 @@ defmodule Mutator do
     mutators = %{
       flip: &randomize_char_at/2,
       insert: &insert_char_at/2,
-      delete: &delete_char_at/2
+      delete: &delete_char_at/2,
+      none: fn str, _ -> str end
     }
 
     allowed = if mask, do: Enum.at(mask, idx, []), else: [Enum.random(full_mask)]
@@ -44,17 +45,15 @@ defmodule Mutator do
     if allowed == [] do
       do_mutate(graphemes, mask, idx + 1, max_len)
     else
-      mutator_key = Enum.random(allowed)
+      mutator_key = Enum.random([:none | allowed])
       mutator = Map.get(mutators, mutator_key)
-
-      # IO.inspect({Enum.join(graphemes), mask, mutator_key, idx})
 
       new_input = mutator.(Enum.join(graphemes), idx) |> String.graphemes()
 
       new_mask =
         if mask do
           case mutator_key do
-            :insert -> List.insert_at(mask, idx + 1, [:i])
+            :insert -> List.insert_at(mask, idx + 1, full_mask)
             :delete -> List.delete_at(mask, idx)
             _ -> mask
           end
