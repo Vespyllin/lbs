@@ -303,6 +303,127 @@ defmodule Blame do
   end
 
   defp traverse(
+         {:receive, _meta, [[do: branches]]},
+         {depth, ctr, acc},
+         config = {cause_ids, _, _}
+       ) do
+    branch_ids =
+      branches
+      |> Enum.with_index()
+      |> Enum.map(fn {_branch, idx} ->
+        suffix(acc, ctr + 1, "R" <> to_string(idx + 1))
+      end)
+
+    cause = Enum.any?(branch_ids, fn x -> x in cause_ids end)
+
+    if cause do
+      IO.write(IO.ANSI.blue())
+    end
+
+    IO.puts(pad(depth) <> "receive do")
+    IO.write(IO.ANSI.reset())
+
+    branches
+    |> Enum.with_index()
+    |> Enum.map(fn {branch, idx} ->
+      branch_id = Enum.at(branch_ids, idx)
+
+      if(branch_id in cause_ids) do
+        IO.write(IO.ANSI.red())
+      else
+        IO.write(IO.ANSI.color(1, 1, 1))
+      end
+
+      traverse(branch, {depth + 1, 0, branch_id}, config)
+      IO.write(IO.ANSI.reset())
+    end)
+
+    if cause do
+      IO.write(IO.ANSI.blue())
+    end
+
+    IO.puts(pad(depth) <> "end")
+    IO.write(IO.ANSI.reset())
+  end
+
+  defp traverse(
+         {:receive, _meta, [[do: branches, after: after_branches]]},
+         {depth, ctr, acc},
+         config = {cause_ids, _, _}
+       ) do
+    branch_ids =
+      branches
+      |> Enum.with_index()
+      |> Enum.map(fn {_branch, idx} ->
+        suffix(acc, ctr + 1, "R" <> to_string(idx + 1))
+      end)
+
+    after_ids =
+      after_branches
+      |> Enum.with_index()
+      |> Enum.map(fn {_branch, idx} ->
+        suffix(acc, ctr + 1, "A" <> to_string(idx + 1))
+      end)
+
+    cause = Enum.any?(branch_ids ++ after_ids, fn x -> x in cause_ids end)
+
+    if cause do
+      IO.write(IO.ANSI.blue())
+    end
+
+    IO.puts(pad(depth) <> "receive do")
+    IO.write(IO.ANSI.reset())
+
+    branches
+    |> Enum.with_index()
+    |> Enum.map(fn {branch, idx} ->
+      branch_id = Enum.at(branch_ids, idx)
+
+      if(branch_id in cause_ids) do
+        IO.write(IO.ANSI.red())
+      else
+        IO.write(IO.ANSI.color(1, 1, 1))
+      end
+
+      traverse(branch, {depth + 1, 0, branch_id}, config)
+      IO.write(IO.ANSI.reset())
+    end)
+
+    if(cause) do
+      IO.write(IO.ANSI.blue())
+    else
+      IO.write(IO.ANSI.color(1, 1, 1))
+    end
+
+    IO.puts(pad(depth) <> "after")
+    IO.write(IO.ANSI.reset())
+
+    after_branches
+    |> Enum.with_index()
+    |> Enum.map(fn {branch, idx} ->
+      after_id = Enum.at(after_ids, idx)
+
+      if(after_id in cause_ids) do
+        IO.write(IO.ANSI.red())
+      else
+        IO.write(IO.ANSI.color(1, 1, 1))
+      end
+
+      traverse(branch, {depth + 1, 0, after_id}, config)
+      IO.write(IO.ANSI.reset())
+    end)
+
+    if(cause) do
+      IO.write(IO.ANSI.blue())
+    else
+      IO.write(IO.ANSI.color(1, 1, 1))
+    end
+
+    IO.puts(pad(depth) <> "end")
+    IO.write(IO.ANSI.reset())
+  end
+
+  defp traverse(
          {:defmodule, _meta, [{:__aliases__, __meta, _}, [mod_content]]},
          traverse_data,
          config

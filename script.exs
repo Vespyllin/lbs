@@ -1,34 +1,61 @@
-PropEl.propel(
-  "./tests/custom_benchmarks.ex",
-  :constructive_branch,
-  fn res, _input -> res == :ok end,
-  true
-)
+# PropEl.propel(
+#   "./tests/example_module.ex",
+#   :check_string,
+#   fn res, _input -> res == :ok end,
+#   true
+# )
 
 # Injector.out("./tests/example_module.ex", :check_string, "./", true)
 
-# test_1 = {"./tests/custom_benchmarks.ex", :constructive_branch, fn res, _input -> res == :ok end}
+generic_test = fn res, _input -> res == :ok end
+file = "./tests/custom_benchmarks.ex"
 
-# t = 1000
-# iters = 12
+test_1 = {file, :flat_branch, generic_test}
+test_2 = {file, :constructive_branch, generic_test}
+test_3 = {file, :constructive_branch_mult, generic_test}
+test_4 = {file, :unrelated_branch, generic_test}
 
-# timeout1 = 60 * t
-# Bench.run(test_1, {true, true, true}, iters, timeout1)
-# Bench.run(test_1, {true, true, false}, iters, timeout1)
-# Bench.run(test_2, {true, true, true}, iters, timeout1)
-# Bench.run(test_2, {true, true, false}, iters, timeout1)
+cases = [test_2]
 
-# Bench.run(test_1, {true, false, false}, iters, timeout1)
-# Bench.run(test_1, {false, false, false}, iters, timeout1)
+full_capability = {true, true, true}
+no_trim = {true, true, false}
+no_mask = {true, false, false}
+no_schedule = {false, false, false}
 
-# # timeout2 = 180 * t
-# # Bench.run(test_1, {true, true, true}, iters, timeout2)
-# # Bench.run(test_1, {true, true, false}, iters, timeout2)
-# # Bench.run(test_1, {true, false, false}, iters, timeout2)
-# # Bench.run(test_1, {false, false, false}, iters, timeout2)
+t = 1000
+iters = 100
 
-# # timeout3 = 6000 * t
-# # Bench.run(test_1, {true, true, true}, iters, timeout3)
-# # Bench.run(test_1, {true, true, false}, iters, timeout3)
-# # Bench.run(test_1, {true, false, false}, iters, timeout3)
-# # Bench.run(test_1, {false, false, false}, iters, timeout3)
+timeout = 60 * t
+f = "benchmark60.csv"
+Bench.run(cases, full_capability, iters, timeout, f)
+Bench.run(cases, no_trim, iters, timeout, f)
+Bench.run(cases, no_mask, iters, timeout, f)
+Bench.run(cases, no_schedule, iters, timeout, f)
+
+timeout = 180 * t
+f = "benchmark180.csv"
+Bench.run(cases, full_capability, iters, timeout, f)
+Bench.run(cases, no_trim, iters, timeout, f)
+Bench.run(cases, no_mask, iters, timeout, f)
+Bench.run(cases, no_schedule, iters, timeout, f)
+
+timeout = 300 * t
+f = "benchmark300.csv"
+Bench.run(cases, full_capability, iters, timeout, f)
+Bench.run(cases, no_trim, iters, timeout, f)
+Bench.run(cases, no_mask, iters, timeout, f)
+Bench.run(cases, no_schedule, iters, timeout, f)
+
+timeout = 900 * t
+f = "benchmark900.csv"
+Bench.run(cases, full_capability, iters, timeout, f)
+Bench.run(cases, no_trim, iters, timeout, f)
+Bench.run(cases, no_mask, iters, timeout, f)
+Bench.run(cases, no_schedule, iters, timeout, f)
+
+timeout = 1800 * t
+f = "benchmark1800.csv"
+Bench.run(cases, full_capability, iters, timeout, f)
+Bench.run(cases, no_trim, iters, timeout, f)
+Bench.run(cases, no_mask, iters, timeout, f)
+Bench.run(cases, no_schedule, iters, timeout, f)

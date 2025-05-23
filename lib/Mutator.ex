@@ -1,7 +1,8 @@
 defmodule Mutator do
   # Strings
   defp delete_char_at(str, index) when is_binary(str) do
-    String.graphemes(str)
+    str
+    |> String.graphemes()
     |> List.delete_at(index)
     |> Enum.join()
   end
@@ -10,27 +11,31 @@ defmodule Mutator do
     # Printable ASCII
     char = <<:rand.uniform(94) + 31>>
 
-    String.graphemes(str)
+    str
+    |> String.graphemes()
     |> List.insert_at(index + 1, char)
     |> Enum.join()
   end
 
   defp randomize_char_at(str, index) when is_binary(str) do
     # Printable ASCII
-    random_char = <<:rand.uniform(94) + 31>>
+    char = <<:rand.uniform(94) + 31>>
 
-    String.graphemes(str)
-    |> List.replace_at(index, random_char)
+    str
+    |> String.graphemes()
+    |> List.replace_at(index, char)
     |> Enum.join()
   end
 
-  def mutate(input, mask, max_len) when is_binary(input) do
-    do_mutate(String.graphemes(input), mask, 0, max_len)
-    |> then(fn {graphemes, _mask} -> Enum.join(graphemes) end)
+  def mutate(input, mask) when is_binary(input) do
+    input
+    |> String.graphemes()
+    |> do_mutate(mask)
   end
 
-  defp do_mutate(graphemes, mask, idx, max_len)
-       when idx < length(graphemes) and length(graphemes) < max_len do
+  defp do_mutate(graphemes, mask, idx \\ 0)
+
+  defp do_mutate(graphemes, mask, idx) when idx < length(graphemes) do
     full_mask = [:flip, :insert, :delete]
 
     mutators = %{
@@ -40,10 +45,10 @@ defmodule Mutator do
       none: fn str, _ -> str end
     }
 
-    allowed = if mask, do: Enum.at(mask, idx, []), else: [Enum.random(full_mask)]
+    allowed = if mask, do: Enum.at(mask, idx, []), else: full_mask
 
     if allowed == [] do
-      do_mutate(graphemes, mask, idx + 1, max_len)
+      do_mutate(graphemes, mask, idx + 1)
     else
       mutator_key = Enum.random([:none | allowed])
       mutator = Map.get(mutators, mutator_key)
@@ -69,12 +74,12 @@ defmodule Mutator do
           _ -> idx + 1
         end
 
-      do_mutate(new_input, new_mask, next_idx, max_len)
+      do_mutate(new_input, new_mask, next_idx)
     end
   end
 
-  defp do_mutate(graphemes, mask, _idx, _max_len) do
-    {graphemes, mask}
+  defp do_mutate(graphemes, mask, _idx) do
+    {Enum.join(graphemes), mask}
   end
 
   # Finds an index where the mutation is allowed
@@ -103,7 +108,7 @@ defmodule Mutator do
 
     num_mutations = :rand.uniform(256)
 
-    {mutated_input, _} =
+    {mutated_input, mutated_mask} =
       Enum.reduce(1..num_mutations, {input, mask}, fn _, {curr_input, curr_mask} ->
         mutation = Enum.random(full_mask)
 
@@ -134,7 +139,7 @@ defmodule Mutator do
         end
       end)
 
-    mutated_input
+    {mutated_input, mutated_mask}
   end
 
   def gen(str_size) do
@@ -151,6 +156,30 @@ defmodule Mutator do
 
       Enum.filter(mutation_res, fn {_op, mutated_input} -> check_fn.(mutated_input) end)
       |> Enum.map(fn {op, _inputs} -> op end)
+    end
+  end
+
+  def trim(check_fn, input, path_ids, min_len \\ 0) do
+    masks = compute_mask(check_fn, input)
+
+    case masks |> Enum.with_index() |> Enum.filter(fn {mask, _} -> :delete in mask end) do
+      [] ->
+        input
+
+      deletable_indices ->
+        index = deletable_indices |> Enum.random() |> elem(1)
+
+        new_input =
+          input
+          |> String.graphemes()
+          |> List.delete_at(index)
+          |> Enum.join()
+
+        if(String.length(input) <= min_len) do
+          new_input
+        else
+          trim(check_fn, new_input, path_ids, min_len)
+        end
     end
   end
 end

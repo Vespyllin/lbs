@@ -130,20 +130,21 @@ defmodule Injector do
 
   # Handle module components
   defp handle_mod_members(stmts, fn_data) when is_list(stmts) do
-    gen_hook_ast() ++
-      Enum.map(stmts, fn
-        {decl_type, meta, fn_decl} when decl_type in [:def, :defp] ->
-          case handle_fn_def(fn_decl, fn_data) do
-            {:hit, modified_fn} ->
-              [{decl_type, meta, modified_fn}, {decl_type, meta, fn_decl}]
+    (gen_hook_ast() ++
+       Enum.map(stmts, fn
+         {decl_type, meta, fn_decl} when decl_type in [:def, :defp] ->
+           case handle_fn_def(fn_decl, fn_data) do
+             {:hit, modified_fn} ->
+               [{decl_type, meta, modified_fn}, {decl_type, meta, fn_decl}]
 
-            {:miss, _} ->
-              [{decl_type, meta, fn_decl}]
-          end
+             {:miss, _} ->
+               {decl_type, meta, fn_decl}
+           end
 
-        other ->
-          other
-      end)
+         other ->
+           other
+       end))
+    |> List.flatten()
   end
 
   defp handle_mod_members(stmts, fn_data) do
@@ -287,6 +288,35 @@ defmodule Injector do
       end)
 
     {:cond, meta, [[{:do, modified_branches}]]}
+  end
+
+  defp handle_statement({:receive, meta, [[do: branches]]}, {ctr, id}) do
+    modified_branches =
+      branches
+      |> Enum.with_index()
+      |> Enum.map(fn {branch, idx} ->
+        handle_statement(branch, {0, suffix(id, ctr, "R" <> to_string(idx + 1))})
+      end)
+
+    {:receive, meta, [[do: modified_branches]]}
+  end
+
+  defp handle_statement({:receive, meta, [[do: branches, after: after_branches]]}, {ctr, id}) do
+    modified_branches =
+      branches
+      |> Enum.with_index()
+      |> Enum.map(fn {branch, idx} ->
+        handle_statement(branch, {0, suffix(id, ctr, "R" <> to_string(idx + 1))})
+      end)
+
+    modified_after_branches =
+      after_branches
+      |> Enum.with_index()
+      |> Enum.map(fn {branch, idx} ->
+        handle_statement(branch, {0, suffix(id, ctr, "A" <> to_string(idx + 1))})
+      end)
+
+    {:receive, meta, [[do: modified_branches, after: modified_after_branches]]}
   end
 
   defp handle_statement({:->, meta, [matcher, clause]}, {ctr, id}) do

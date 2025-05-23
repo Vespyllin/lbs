@@ -5,6 +5,7 @@ require Injector
 defmodule PropEl do
   @disc_energy 5
   @max_string_size 32
+  @discard_odds 3
 
   defp contained?(sublist, list) do
     sublist_length = length(sublist)
@@ -19,38 +20,6 @@ defmodule PropEl do
     end
   end
 
-  defp trim_input(mod, input, path_ids, min_len \\ 0) do
-    compute_masks = fn input ->
-      Mutator.compute_mask(fn mutated_input -> check_fn(mod, mutated_input, path_ids) end, input)
-    end
-
-    trim_rec = fn trim_rec, current_input ->
-      if(String.length(current_input) <= min_len) do
-        current_input
-      else
-        masks = compute_masks.(current_input)
-
-        case masks |> Enum.with_index() |> Enum.filter(fn {mask, _} -> :delete in mask end) do
-          [] ->
-            current_input
-
-          deletable ->
-            index = deletable |> Enum.random() |> elem(1)
-
-            new_input =
-              current_input
-              |> String.graphemes()
-              |> List.delete_at(index)
-              |> Enum.join()
-
-            trim_rec.(trim_rec, new_input)
-        end
-      end
-    end
-
-    trim_rec.(trim_rec, input)
-  end
-
   def check_fn(mod, mutated_input, path_ids) do
     {_res, new_path_ids} = apply(mod, :hook, [[mutated_input]])
     contained?(path_ids, new_path_ids)
@@ -58,6 +27,12 @@ defmodule PropEl do
 
   defp queue_server(state) do
     receive do
+      :stop ->
+        :ok
+
+      {:all, caller} ->
+        send(caller, {:ok, state})
+
       {:successful, input, mask, energy} ->
         new_state = %{state | qsucc: [{input, mask, energy}] ++ state.qsucc}
         queue_server(new_state)
@@ -66,14 +41,11 @@ defmodule PropEl do
         new_state = %{state | qdisc: [{input, mask, energy}] ++ state.qdisc}
         queue_server(new_state)
 
-      {:all, caller} ->
-        send(caller, {:ok, state})
-
       {:dequeue, caller} ->
         case state.qsucc do
           [{input, mask, energy} | rest] when energy > 1 ->
             send(caller, {:ok, input, mask, :successful})
-            queue_server(%{state | qsucc: [{input, mask, energy - 1} | rest]})
+            queue_server(%{state | qsucc: [{input, mask, energy - 1}] ++ rest})
 
           [{input, mask, 1} | rest] ->
             send(caller, {:ok, input, mask, :successful})
@@ -83,7 +55,7 @@ defmodule PropEl do
             case state.qdisc do
               [{input, mask, energy} | rest] when energy > 1 ->
                 send(caller, {:ok, input, mask, :discard})
-                queue_server(%{state | qdisc: [{input, mask, energy - 1} | rest]})
+                queue_server(%{state | qdisc: [{input, mask, energy - 1}] ++ rest})
 
               [{input, mask, 1} | rest] ->
                 send(caller, {:ok, input, mask, :discard})
@@ -94,14 +66,17 @@ defmodule PropEl do
                 queue_server(state)
             end
         end
-
-      :stop ->
-        :ok
     end
   end
 
   defp coverage_server(state) do
     receive do
+      :stop ->
+        :ok
+
+      {:all, caller} ->
+        send(caller, {:ok, state})
+
       {:check, id, caller} ->
         response = if MapSet.member?(state, id), do: :seen, else: :new
         send(caller, response)
@@ -110,32 +85,26 @@ defmodule PropEl do
       {:submit, id} ->
         new_state = MapSet.put(state, id)
         coverage_server(new_state)
-
-      {:all, caller} ->
-        send(caller, {:ok, state})
-
-      :stop ->
-        :ok
     end
   end
 
-  defp dequeue_input(server_pid) when is_nil(server_pid) do
+  defp dequeue(server_pid) when is_nil(server_pid) do
     {Mutator.gen(:rand.uniform(@max_string_size)), nil, :random}
   end
 
-  defp dequeue_input(server_pid) do
+  defp dequeue(server_pid) do
     send(server_pid, {:dequeue, self()})
 
     receive do
       # Mutate only quality inputs
       {:ok, seed, seed_mask, queue} ->
-        mutation =
+        {mutation, mutated_mask} =
           if(queue == :successful,
-            do: Mutator.mutate(seed, seed_mask, @max_string_size),
+            do: Mutator.mutate(seed, seed_mask),
             else: Mutator.havoc(seed, seed_mask)
           )
 
-        {mutation, seed_mask, queue}
+        {mutation, mutated_mask, queue}
 
       # Generate randomly
       nil ->
@@ -143,17 +112,11 @@ defmodule PropEl do
     end
   end
 
-  defp queue_input(_, path_ids, _, _, _) when length(path_ids) == 0 do
+  defp queue(_, path_ids, _, _, _) when length(path_ids) == 0 do
     nil
   end
 
-  defp queue_input(
-         {coverage_pid, queue_pid, mod, compute_mask, trim},
-         path_ids,
-         input,
-         seed_mask,
-         quality
-       ) do
+  defp queue({queue_pid, coverage_pid, mod, compute_mask, do_trim}, path_ids, seed, mask, quality) do
     path_hash = Enum.join(path_ids, "/")
 
     # Check coverage
@@ -162,38 +125,40 @@ defmodule PropEl do
     # Queue accordingly
     receive do
       :new ->
-        clean_input =
-          if(trim, do: trim_input(mod, input, path_ids, @max_string_size / 2), else: input)
+        seed =
+          if(do_trim,
+            do:
+              Mutator.trim(
+                fn mutated_input -> check_fn(mod, mutated_input, path_ids) end,
+                seed,
+                path_ids,
+                @max_string_size / 2
+              ),
+            else: seed
+          )
 
         mask =
-          if compute_mask do
-            Mutator.compute_mask(
-              fn mutated_input -> check_fn(mod, mutated_input, path_ids) end,
-              clean_input
-            )
-          else
-            nil
-          end
+          if(compute_mask,
+            do: Mutator.compute_mask(fn new -> check_fn(mod, new, path_ids) end, seed),
+            else: nil
+          )
 
-        send(
-          queue_pid,
-          {:successful, clean_input, mask, 3 ** String.length(clean_input) * length(path_ids)}
-        )
+        send(queue_pid, {:successful, seed, mask, 2 ** (String.length(seed) + length(path_ids))})
 
         send(coverage_pid, {:submit, path_hash})
 
       :seen ->
-        if(quality == :successful) do
-          send(queue_pid, {:discard, input, seed_mask, @disc_energy ** length(path_ids)})
+        if(quality == :successful and :rand.uniform(@discard_odds) == @discard_odds) do
+          send(queue_pid, {:discard, seed, mask, @disc_energy ** length(path_ids)})
         end
     end
   end
 
-  defp fuzz_loop(config, iter \\ 1)
+  defp fuzz(config, iter \\ 1)
 
-  defp fuzz_loop(config = {queue_pid, coverage_pid, mod, p, use_scheduler, calc_mask, trim}, iter) do
+  defp fuzz(config = {queue_pid, coverage_pid, mod, p, use_scheduler, calc_mask, do_trim}, iter) do
     # Get next input
-    {input, seed_mask, quality} = dequeue_input(queue_pid)
+    {input, mask, quality} = dequeue(queue_pid)
 
     # Run function
     {res, path_ids} = apply(mod, :hook, [[input]])
@@ -203,17 +168,17 @@ defmodule PropEl do
       {:bug, iter, path_ids, input, res, quality}
     else
       if use_scheduler do
-        queue_input(
-          {coverage_pid, queue_pid, mod, calc_mask, trim},
-          path_ids,
-          input,
-          seed_mask,
-          quality
-        )
+        queue({queue_pid, coverage_pid, mod, calc_mask, do_trim}, path_ids, input, mask, quality)
       end
 
-      fuzz_loop(config, iter + 1)
+      fuzz(config, iter + 1)
     end
+  end
+
+  defp blue(str) do
+    IO.ANSI.blue() <>
+      str <>
+      IO.ANSI.reset()
   end
 
   def propel(source_file, fn_name, p, print) do
@@ -230,8 +195,8 @@ defmodule PropEl do
     mod = Injector.instrument(ast, fn_name)
 
     # Spawn state servers
-    queue_pid = spawn(fn -> queue_server(%{qsucc: [], qdisc: []}) end)
-    coverage_pid = spawn(fn -> coverage_server(MapSet.new()) end)
+    queue_pid = spawn_link(fn -> queue_server(%{qsucc: [], qdisc: []}) end)
+    coverage_pid = spawn_link(fn -> coverage_server(MapSet.new()) end)
 
     if(print) do
       IO.puts("Initiating fuzzing loop...\n")
@@ -239,22 +204,28 @@ defmodule PropEl do
 
     return_val =
       {:bug, iter, path_ids, input, res, quality} =
-      fuzz_loop({queue_pid, coverage_pid, mod, p, true, true, true})
+      fuzz({queue_pid, coverage_pid, mod, p, true, true, true})
+
+    send(queue_pid, :stop)
+    send(coverage_pid, :stop)
 
     if(print) do
       IO.puts(
         "Bug found at iter ##{iter} with " <>
           inspect(quality) <>
           " input " <>
-          IO.ANSI.blue() <>
-          inspect(input) <>
-          IO.ANSI.reset() <>
+          blue(inspect(input)) <>
           " (trimmed: " <>
-          IO.ANSI.blue() <>
-          inspect(trim_input(mod, input, path_ids)) <>
-          IO.ANSI.reset() <>
+          blue(
+            inspect(
+              Mutator.trim(
+                fn mutated_input -> check_fn(mod, mutated_input, path_ids) end,
+                input,
+                path_ids
+              )
+            )
+          ) <>
           ")" <>
-          IO.ANSI.reset() <>
           " yielding result:"
       )
 
@@ -277,13 +248,13 @@ defmodule PropEl do
     |> Injector.instrument(fn_name)
   end
 
-  def benchmark_runner(mod, p, use_scheduler, calc_mask, trim) do
+  def benchmark_runner(mod, p, use_scheduler, calc_mask, do_trim) do
     queue_pid =
       if(use_scheduler, do: spawn(fn -> queue_server(%{qsucc: [], qdisc: []}) end), else: nil)
 
     coverage_pid =
       if(use_scheduler, do: spawn(fn -> coverage_server(MapSet.new()) end), else: nil)
 
-    fuzz_loop({queue_pid, coverage_pid, mod, p, use_scheduler, calc_mask, trim})
+    fuzz({queue_pid, coverage_pid, mod, p, use_scheduler, calc_mask, do_trim})
   end
 end
