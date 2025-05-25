@@ -71,7 +71,7 @@ defmodule StatusPrinter do
   # Helper to print and overwrite the line
   defp print_state(state) do
     IO.write(
-      "\r#{state.increments} -> #{IO.ANSI.green()}#{state.terminations}#{IO.ANSI.reset()} -- #{IO.ANSI.red()}#{state.timeouts}#{IO.ANSI.reset()} (#{IO.ANSI.color(1,1,1)}#{state.terminations + state.timeouts}#{IO.ANSI.reset()}) | #{IO.ANSI.blue()}#{state.active}#{IO.ANSI.reset()} "
+      "\r#{state.increments} -> #{IO.ANSI.green()}#{state.terminations}#{IO.ANSI.reset()} -- #{IO.ANSI.red()}#{state.timeouts}#{IO.ANSI.reset()} (#{IO.ANSI.color(1, 1, 1)}#{state.terminations + state.timeouts}#{IO.ANSI.reset()}) | #{IO.ANSI.blue()}#{state.active}#{IO.ANSI.reset()} "
     )
   end
 end
