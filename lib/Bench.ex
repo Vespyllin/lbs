@@ -1,10 +1,9 @@
 require PropEl
 
-defmodule DynamicCounter do
+defmodule StatusPrinter do
   use GenServer
 
-  # Client API
-  def start_link(_) do
+  def start_link() do
     GenServer.start_link(
       __MODULE__,
       %{
@@ -65,15 +64,14 @@ defmodule DynamicCounter do
   end
 
   def handle_cast(:exit, state) do
-    IO.puts("\n")
-
+    IO.write("\n")
     {:stop, :normal, state}
   end
 
   # Helper to print and overwrite the line
   defp print_state(state) do
     IO.write(
-      "\r#{state.increments} -> #{IO.ANSI.green()}#{state.terminations}#{IO.ANSI.reset()} -- #{IO.ANSI.red()}#{state.timeouts}#{IO.ANSI.reset()} | #{IO.ANSI.blue()}#{state.active}#{IO.ANSI.reset()} "
+      "\r#{state.increments} -> #{IO.ANSI.green()}#{state.terminations}#{IO.ANSI.reset()} -- #{IO.ANSI.red()}#{state.timeouts}#{IO.ANSI.reset()} (#{IO.ANSI.color(1,1,1)}#{state.terminations + state.timeouts}#{IO.ANSI.reset()}) | #{IO.ANSI.blue()}#{state.active}#{IO.ANSI.reset()} "
     )
   end
 end
@@ -81,7 +79,7 @@ end
 defmodule Bench do
   defp run_with_timeout(fn_ref, timeout) do
     self = self()
-    fuzzer_pid = spawn(fn -> send(self, fn_ref.()) end)
+    fuzzer_pid = spawn_link(fn -> send(self, fn_ref.()) end)
 
     receive do
       res -> res
@@ -95,14 +93,25 @@ defmodule Bench do
   def run(tests, opts, iterations, timeout, csv_path \\ "benchmarks.csv") do
     # Initialize CSV if not exists
     unless File.exists?(csv_path) do
-      File.write!(csv_path, "function_name,timeout,is_schedule,is_mask,is_trim,time,iterations\n")
+      File.write!(
+        csv_path,
+        "function_name,timeout,is_schedule,is_mask,is_trim,time,iterations,queue,input_len\n"
+      )
     end
+
+    IO.puts(
+      "===================================================== Benchmarks Initiated ====================================================="
+    )
 
     tests
     |> Enum.map(fn test ->
       time(test, opts, iterations, timeout, csv_path)
-      File.write!(csv_path, "\n")
+      File.write!(csv_path, "\n", [:append])
     end)
+
+    IO.puts(
+      "===================================================== Benchmarks Completed =====================================================\n"
+    )
 
     :ok
   end
@@ -111,21 +120,21 @@ defmodule Bench do
     mod = PropEl.benchmark_prep(loc, fn_name)
 
     IO.puts(
-      "Running #{iterations} fuzzing loops with" <>
-        " scheduling: #{if(scheduler, do: "✔️ ", else: "✖️ ")}, masking: #{if(mask, do: "✔️ ", else: "✖️ ")}, trimming: #{if(trim, do: "✔️ ", else: "✖️ ")}, " <>
+      "\rRunning #{iterations} fuzzing loops with" <>
+        " scheduling: #{if(scheduler, do: "✔️", else: "✖️")}, masking: #{if(mask, do: "✔️", else: "✖️")}, trimming: #{if(trim, do: "✔️", else: "✖️")}, " <>
         "gated by a #{floor(timeout / 1000)}s timeout for #{to_string(fn_name)}/1."
     )
 
-    DynamicCounter.start_link(nil)
+    StatusPrinter.start_link()
 
     1..iterations
     |> Task.async_stream(
-      fn idx ->
+      fn _ ->
         result =
           :timer.tc(fn ->
             run_with_timeout(
               fn ->
-                DynamicCounter.inc()
+                StatusPrinter.inc()
                 PropEl.benchmark_runner(mod, property, scheduler, mask, trim)
               end,
               timeout
@@ -133,8 +142,8 @@ defmodule Bench do
           end)
 
         case result do
-          {time, {:bug, iter, _, _, _, _}} ->
-            DynamicCounter.terminate()
+          {time, {:bug, iter, input, quality}} ->
+            StatusPrinter.terminate()
 
             csv_line =
               Enum.join(
@@ -145,28 +154,30 @@ defmodule Bench do
                   mask,
                   trim,
                   div(time, 1_000_000),
-                  iter
+                  iter,
+                  quality,
+                  String.length(input)
                 ],
                 ","
               )
 
             File.write!(csv_path, csv_line <> "\n", [:append])
-            {time, result}
+            :write
 
           _ ->
-            DynamicCounter.timeout()
-
+            StatusPrinter.timeout()
             :noop
         end
       end,
-      max_concurrency: System.schedulers_online(),
+      # max_concurrency: System.schedulers_online(),
+      max_concurrency: 10,
       timeout: :infinity
     )
     |> Enum.reject(fn _ -> true end)
 
     :code.purge(mod)
     :code.delete(mod)
-    DynamicCounter.exit()
+    StatusPrinter.exit()
 
     {to_string(fn_name), :done}
   end

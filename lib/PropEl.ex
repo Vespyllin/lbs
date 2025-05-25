@@ -143,7 +143,7 @@ defmodule PropEl do
             else: nil
           )
 
-        send(queue_pid, {:successful, seed, mask, 2 ** (String.length(seed) + length(path_ids))})
+        send(queue_pid, {:successful, seed, mask, 3 ** String.length(seed) * length(path_ids)})
 
         send(coverage_pid, {:submit, path_hash})
 
@@ -250,11 +250,19 @@ defmodule PropEl do
 
   def benchmark_runner(mod, p, use_scheduler, calc_mask, do_trim) do
     queue_pid =
-      if(use_scheduler, do: spawn(fn -> queue_server(%{qsucc: [], qdisc: []}) end), else: nil)
+      if(use_scheduler, do: spawn_link(fn -> queue_server(%{qsucc: [], qdisc: []}) end), else: nil)
 
     coverage_pid =
-      if(use_scheduler, do: spawn(fn -> coverage_server(MapSet.new()) end), else: nil)
+      if(use_scheduler, do: spawn_link(fn -> coverage_server(MapSet.new()) end), else: nil)
 
-    fuzz({queue_pid, coverage_pid, mod, p, use_scheduler, calc_mask, do_trim})
+    {:bug, iter, _, input, _, quality} =
+      fuzz({queue_pid, coverage_pid, mod, p, use_scheduler, calc_mask, do_trim})
+
+    if use_scheduler do
+      send(queue_pid, :stop)
+      send(coverage_pid, :stop)
+    end
+
+    {:bug, iter, input, quality}
   end
 end

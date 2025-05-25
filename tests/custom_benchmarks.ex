@@ -1,58 +1,42 @@
 defmodule BenchmarkTests do
-  def flat_branch(str) do
-    if String.contains?(str, "badinput") do
+  def flat(str) do
+    if String.contains?(str, "crash") do
       raise "Crash"
     end
 
     :ok
   end
 
-  def constructive_branch(str) do
-    if String.contains?(str, "abc") do
-      if String.contains?(str, "def") do
-        if String.contains?(str, "abc11") or String.contains?(str, "defg22") do
-          raise "Crash"
-        end
+  def nested(str) do
+    if String.starts_with?(str, "abc") do
+      if String.ends_with?(str, "def") do
+        raise "Crash"
       end
     end
 
     :ok
   end
 
-  def constructive_branch_mult(str) do
-    if String.contains?(str, "aaa") do
-      if String.contains?(str, "bbb") do
-        if String.contains?(str, "aaa11") do
-          raise "Crash"
-        end
-
-        if String.contains?(str, "bbb22") do
-          :ok
-        end
-
-        if String.contains?(str, "ddddd") do
-          :ok
-        end
-
-        if String.contains?(str, "eeeee") do
-          :ok
-        end
-
-        if String.contains?(str, "fffff") do
-          :ok
-        end
+  def mult(str) do
+    if String.starts_with?(str, "PRE") do
+      if String.contains?(str, "PRE1") do
+        raise "Crash"
       end
-    end
 
-    :ok
-  end
+      if String.contains?(str, "PRE2") do
+        :ok
+      end
 
-  def unrelated_branch(str) do
-    if String.contains?(str, "abc") do
-      if String.contains?(str, "def") do
-        if String.contains?(str, "vwxyz") or String.contains?(str, "lmnop") do
-          raise "Crash"
-        end
+      if String.contains?(str, "PRE3") do
+        :ok
+      end
+
+      if String.contains?(str, "PRE4") do
+        :ok
+      end
+
+      if String.contains?(str, "PRE5") do
+        :ok
       end
     end
 
