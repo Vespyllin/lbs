@@ -4,7 +4,7 @@ import seaborn as sns
 import numpy as np
 
 # Load and prepare the data
-df = pd.read_csv('./data/benchmark_30_10.csv')
+df = pd.read_csv('./data/benchmark_5_100.csv')
 
 # Create configuration labels
 df['configuration'] = df.apply(lambda row: 
@@ -25,7 +25,7 @@ for function in df['function_name'].unique():
     plt.figure()
     func_df = df[df['function_name'] == function]
     
-    # --- Plot 1: Cumulative Bugs Found Over Time ---
+    # --- Plot 1: Cumulative Bugs Found Over Iterations ---
     for i, config in enumerate(['Random Generation', 'Scheduler', 'Scheduler + Mask', 'Scheduler + Mask + Trim']):
         config_df = func_df[func_df['configuration'] == config].sort_values('iterations')
         if not config_df.empty:
@@ -35,14 +35,14 @@ for function in df['function_name'].unique():
                     label=config, color=palette[i], linewidth=2)
             plt.scatter(config_df['iterations'], cumulative_bugs, color=palette[i], alpha=0.7)
     
-    plt.title(f'{function}: Cumulative Bugs Found Over Iterations (30m Timeout)')
+    plt.title(f'{function}: Cumulative Bugs Found Over Iterations (5m Timeout)')
     plt.xlabel('Iterations')
     plt.ylabel('Bugs Found')
     plt.legend()
     plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(f'{function}_iter_long.png', dpi=300)
+    plt.savefig(f'{function}_iterations_long.png', dpi=300)
     plt.close()
 
 print("Analysis saved")

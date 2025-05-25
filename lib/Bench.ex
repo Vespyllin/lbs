@@ -90,18 +90,16 @@ defmodule Bench do
     end
   end
 
-  def run(tests, opts, iterations, timeout, csv_path \\ "benchmarks.csv") do
+  def run(tests, opts, iterations, timeout, csv_path) do
     # Initialize CSV if not exists
     unless File.exists?(csv_path) do
       File.write!(
         csv_path,
-        "function_name,timeout,is_schedule,is_mask,is_trim,time,iterations,queue,input_len\n"
+        "function_name,timeout,is_schedule,is_mask,is_trim,rotate,time,iterations,queue,input_len\n"
       )
     end
 
-    IO.puts(
-      "===================================================== Benchmarks Initiated ====================================================="
-    )
+    IO.puts("==================== Benchmarks Initiated ====================")
 
     tests
     |> Enum.map(fn test ->
@@ -109,20 +107,27 @@ defmodule Bench do
       File.write!(csv_path, "\n", [:append])
     end)
 
-    IO.puts(
-      "===================================================== Benchmarks Completed =====================================================\n"
-    )
+    IO.puts("==================== Benchmarks Completed ====================\n")
 
     :ok
   end
 
-  def time({loc, fn_name, property}, {scheduler, mask, trim}, iterations, timeout, csv_path) do
+  def time(
+        {loc, fn_name, property},
+        {scheduler, mask, trim, rotate},
+        iterations,
+        timeout,
+        csv_path
+      ) do
     mod = PropEl.benchmark_prep(loc, fn_name)
 
     IO.puts(
-      "\rRunning #{iterations} fuzzing loops with" <>
-        " scheduling: #{if(scheduler, do: "✔️", else: "✖️")}, masking: #{if(mask, do: "✔️", else: "✖️")}, trimming: #{if(trim, do: "✔️", else: "✖️")}, " <>
-        "gated by a #{floor(timeout / 1000)}s timeout for #{to_string(fn_name)}/1."
+      "\rFuzzing " <>
+        "#{to_string(fn_name)}x#{iterations}@#{floor(timeout / (1000 * 60))}m -> " <>
+        "[sch:#{if(scheduler, do: "✓", else: "✗")}] " <>
+        "[msk:#{if(mask, do: "✓", else: "✗")}] " <>
+        "[trm:#{if(trim, do: "✓", else: "✗")}] " <>
+        "[rot:#{if(rotate, do: "✓", else: "✗")}] "
     )
 
     StatusPrinter.start_link()
@@ -135,7 +140,7 @@ defmodule Bench do
             run_with_timeout(
               fn ->
                 StatusPrinter.inc()
-                PropEl.benchmark_runner(mod, property, scheduler, mask, trim)
+                PropEl.benchmark_runner(mod, property, scheduler, mask, trim, rotate)
               end,
               timeout
             )
@@ -153,6 +158,7 @@ defmodule Bench do
                   scheduler,
                   mask,
                   trim,
+                  rotate,
                   div(time, 1_000_000),
                   iter,
                   quality,

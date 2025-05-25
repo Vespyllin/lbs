@@ -159,7 +159,7 @@ defmodule Mutator do
     end
   end
 
-  def trim(check_fn, input, path_ids, min_len \\ 0) do
+  def trim(check_fn, input, min_len \\ 1) do
     masks = compute_mask(check_fn, input)
 
     case masks |> Enum.with_index() |> Enum.filter(fn {mask, _} -> :delete in mask end) do
@@ -169,17 +169,47 @@ defmodule Mutator do
       deletable_indices ->
         index = deletable_indices |> Enum.random() |> elem(1)
 
-        new_input =
-          input
-          |> String.graphemes()
-          |> List.delete_at(index)
-          |> Enum.join()
+        new_input = delete_char_at(input, index)
 
-        if(String.length(input) <= min_len) do
+        if(String.length(new_input) <= min_len) do
           new_input
         else
-          trim(check_fn, new_input, path_ids, min_len)
+          trim(check_fn, new_input, min_len)
         end
+    end
+  end
+
+  def pad(_check_fn, "", target_len) do
+    gen(target_len)
+  end
+
+  def pad(check_fn, input, target_len) do
+    if(String.length(input) >= target_len) do
+      input
+    else
+      masks = compute_mask(check_fn, input)
+
+      insertable_indices =
+        if(length(masks) == 0) do
+          []
+        else
+          masks
+          |> Enum.with_index()
+          |> Enum.filter(fn {mask, _} -> :insert in mask end)
+        end
+
+      if(length(insertable_indices) == 0) do
+        input
+      else
+        index =
+          insertable_indices
+          |> Enum.random()
+          |> elem(1)
+
+        new_input = insert_char_at(input, index)
+
+        pad(check_fn, new_input, target_len)
+      end
     end
   end
 end

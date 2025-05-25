@@ -19,23 +19,23 @@ defmodule BenchmarkTests do
 
   def mult(str) do
     if String.starts_with?(str, "PRE") do
-      if String.contains?(str, "PRE1") do
+      if String.starts_with?(str, "PRE1") do
         raise "Crash"
       end
 
-      if String.contains?(str, "PRE2") do
+      if String.starts_with?(str, "PRE2") do
         :ok
       end
 
-      if String.contains?(str, "PRE3") do
+      if String.starts_with?(str, "PRE3") do
         :ok
       end
 
-      if String.contains?(str, "PRE4") do
+      if String.starts_with?(str, "PRE4") do
         :ok
       end
 
-      if String.contains?(str, "PRE5") do
+      if String.starts_with?(str, "PRE5") do
         :ok
       end
     end
