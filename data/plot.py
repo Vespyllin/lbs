@@ -42,7 +42,31 @@ for function in df['function_name'].unique():
     plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(f'{function}_iterations_long.png', dpi=300)
+    plt.savefig(f'{function}_iter.png', dpi=300)
+    plt.close()
+
+for function in df['function_name'].unique():
+    plt.figure()
+    func_df = df[df['function_name'] == function]
+    
+    # --- Plot 1: Cumulative Bugs Found Over time ---
+    for i, config in enumerate(['Random Generation', 'Scheduler', 'Scheduler + Mask', 'Scheduler + Mask + Trim']):
+        config_df = func_df[func_df['configuration'] == config].sort_values('time')
+        if not config_df.empty:
+            # Each row is a bug, so cumulative count is 1, 2, 3...
+            cumulative_bugs = np.arange(1, len(config_df)+1)
+            plt.plot(config_df['time'], cumulative_bugs, 
+                    label=config, color=palette[i], linewidth=2)
+            plt.scatter(config_df['time'], cumulative_bugs, color=palette[i], alpha=0.7)
+    
+    plt.title(f'{function}: Cumulative Bugs Found Over Time (5m Timeout)')
+    plt.xlabel('Time')
+    plt.ylabel('Bugs Found')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(f'{function}_time.png', dpi=300)
     plt.close()
 
 print("Analysis saved")

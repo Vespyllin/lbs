@@ -141,18 +141,7 @@ defmodule PropEl do
 
         seed =
           if(do_trim,
-            do: Mutator.trim(check_fn, seed),
-            else: seed
-          )
-
-        seed =
-          if(do_trim,
-            do:
-              Mutator.pad(
-                check_fn,
-                seed,
-                :rand.uniform(floor(@max_string_size / 2))
-              ),
+            do: Mutator.trim(check_fn, seed, floor(@max_string_size / 2)),
             else: seed
           )
 

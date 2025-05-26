@@ -99,7 +99,7 @@ defmodule Bench do
       )
     end
 
-    IO.puts("==================== Benchmarks Initiated ====================")
+    IO.puts("====================== Benchmarks Initiated ======================")
 
     tests
     |> Enum.map(fn test ->
@@ -107,7 +107,7 @@ defmodule Bench do
       File.write!(csv_path, "\n", [:append])
     end)
 
-    IO.puts("==================== Benchmarks Completed ====================\n")
+    IO.puts("====================== Benchmarks Completed ======================\n")
 
     :ok
   end
@@ -123,7 +123,7 @@ defmodule Bench do
 
     IO.puts(
       "\rFuzzing " <>
-        "#{to_string(fn_name)}x#{iterations}@#{floor(timeout / (1000 * 60))}m -> " <>
+        "#{to_string(fn_name)}x#{iterations}@#{floor(timeout / (1000 * 60))}m\t->\t" <>
         "[sch:#{if(scheduler, do: "✓", else: "✗")}] " <>
         "[msk:#{if(mask, do: "✓", else: "✗")}] " <>
         "[trm:#{if(trim, do: "✓", else: "✗")}] " <>
