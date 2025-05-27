@@ -99,7 +99,7 @@ defmodule Bench do
       )
     end
 
-    IO.puts("====================== Benchmarks Initiated ======================")
+    IO.puts("===================== Benchmarks Initiated =====================")
 
     tests
     |> Enum.map(fn test ->
@@ -107,7 +107,7 @@ defmodule Bench do
       File.write!(csv_path, "\n", [:append])
     end)
 
-    IO.puts("====================== Benchmarks Completed ======================\n")
+    IO.puts("===================== Benchmarks Completed =====================\n")
 
     :ok
   end

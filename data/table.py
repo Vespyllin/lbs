@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Load the data
-df = pd.read_csv('./data/benchmark_5_100.csv')
+df = pd.read_csv('./data/benchmark_5_100_low.csv')
 
 # Define the configuration mapping and order
 config_mapping = {

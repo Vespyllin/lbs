@@ -151,7 +151,7 @@ defmodule PropEl do
             else: nil
           )
 
-        energy = 2 ** String.length(seed) * length(path_ids)
+        energy = 100 * (2 ** String.length(seed) * length(path_ids))
 
         send(queue_pid, {:successful, seed, mask, energy})
 

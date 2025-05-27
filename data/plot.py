@@ -4,69 +4,44 @@ import seaborn as sns
 import numpy as np
 
 # Load and prepare the data
-df = pd.read_csv('./data/benchmark_5_100.csv')
+df = pd.read_csv('./data/benchmark_5_100_high.csv')
 
 # Create configuration labels
 df['configuration'] = df.apply(lambda row: 
-    'Scheduler' if row['is_schedule'] and not row['is_mask'] and not row['is_trim'] else
-    'Scheduler + Mask' if row['is_schedule'] and row['is_mask'] and not row['is_trim'] else
-    'Scheduler + Mask + Trim' if row['is_schedule'] and row['is_mask'] and row['is_trim'] else
+    'Scheduler'                 if row['is_schedule']   and not row['is_mask']    and not row['is_trim']    else
+    'Scheduler + Mask'          if row['is_schedule']   and row['is_mask']        and not row['is_trim']    else
+    'Scheduler + Mask + Trim'   if row['is_schedule']   and row['is_mask']        and row['is_trim']        else
     'Random Generation',
     axis=1)
 
+opts = ['Random Generation', 'Scheduler', 'Scheduler + Mask', 'Scheduler + Mask + Trim']
 
-# Set plotting style
 sns.set(style="whitegrid")
 plt.rcParams['figure.figsize'] = (12, 8)
-palette = sns.color_palette("husl", 4)
+palette = sns.color_palette("husl", len(opts))
 
-# Create plots for each function
 for function in df['function_name'].unique():
     plt.figure()
     func_df = df[df['function_name'] == function]
     
-    # --- Plot 1: Cumulative Bugs Found Over Iterations ---
-    for i, config in enumerate(['Random Generation', 'Scheduler', 'Scheduler + Mask', 'Scheduler + Mask + Trim']):
+    for i, config in enumerate(opts):
         config_df = func_df[func_df['configuration'] == config].sort_values('iterations')
         if not config_df.empty:
-            # Each row is a bug, so cumulative count is 1, 2, 3...
             cumulative_bugs = np.arange(1, len(config_df)+1)
             plt.plot(config_df['iterations'], cumulative_bugs, 
                     label=config, color=palette[i], linewidth=2)
             plt.scatter(config_df['iterations'], cumulative_bugs, color=palette[i], alpha=0.7)
     
-    plt.title(f'{function}: Cumulative Bugs Found Over Iterations (5m Timeout)')
+    plt.title(f'{function}: Cumulative Bugs Found Over Iterations - High Energy (5m Timeout)')
     plt.xlabel('Iterations')
     plt.ylabel('Bugs Found')
     plt.legend()
     plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(f'{function}_iter.png', dpi=300)
+    plt.savefig(f'./data/high_energy/{function}_iter_high.png', dpi=300)
     plt.close()
 
-for function in df['function_name'].unique():
-    plt.figure()
-    func_df = df[df['function_name'] == function]
-    
-    # --- Plot 1: Cumulative Bugs Found Over time ---
-    for i, config in enumerate(['Random Generation', 'Scheduler', 'Scheduler + Mask', 'Scheduler + Mask + Trim']):
-        config_df = func_df[func_df['configuration'] == config].sort_values('time')
-        if not config_df.empty:
-            # Each row is a bug, so cumulative count is 1, 2, 3...
-            cumulative_bugs = np.arange(1, len(config_df)+1)
-            plt.plot(config_df['time'], cumulative_bugs, 
-                    label=config, color=palette[i], linewidth=2)
-            plt.scatter(config_df['time'], cumulative_bugs, color=palette[i], alpha=0.7)
-    
-    plt.title(f'{function}: Cumulative Bugs Found Over Time (5m Timeout)')
-    plt.xlabel('Time')
-    plt.ylabel('Bugs Found')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    plt.savefig(f'{function}_time.png', dpi=300)
-    plt.close()
+
 
 print("Analysis saved")
