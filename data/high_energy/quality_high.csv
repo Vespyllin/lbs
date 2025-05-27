@@ -1,0 +1,7 @@
+function_name, configuration, successful, discard
+mult         , S1_M0_T0     ,          3,       0
+mult         , S1_M1_T0     ,         18,       4
+mult         , S1_M1_T1     ,         17,       5
+nested       , S1_M0_T0     ,          3,       0
+nested       , S1_M1_T0     ,         26,       8
+nested       , S1_M1_T1     ,         33,       5

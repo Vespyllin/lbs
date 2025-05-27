@@ -95,7 +95,7 @@ defmodule Bench do
     unless File.exists?(csv_path) do
       File.write!(
         csv_path,
-        "function_name,timeout,is_schedule,is_mask,is_trim,rotate,time,iterations,queue,input_len\n"
+        "function_name,timeout,is_schedule,is_mask,is_trim,rotate,time,iterations,queue,input_len,paths\n"
       )
     end
 
@@ -147,7 +147,7 @@ defmodule Bench do
           end)
 
         case result do
-          {time, {:bug, iter, input, quality}} ->
+          {time, {:bug, iter, input, quality, paths}} ->
             StatusPrinter.terminate()
 
             csv_line =
@@ -162,7 +162,8 @@ defmodule Bench do
                   div(time, 1_000_000),
                   iter,
                   quality,
-                  String.length(input)
+                  String.length(input),
+                  paths
                 ],
                 ","
               )
@@ -175,8 +176,8 @@ defmodule Bench do
             :noop
         end
       end,
-      # max_concurrency: System.schedulers_online(),
-      max_concurrency: 10,
+      max_concurrency: System.schedulers_online(),
+      # max_concurrency: 10,
       timeout: :infinity
     )
     |> Enum.reject(fn _ -> true end)

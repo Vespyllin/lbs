@@ -2,7 +2,7 @@ import pandas as pd
 from itertools import product
 
 # Load the data
-df = pd.read_csv('./data/benchmark_5_100_low.csv')
+df = pd.read_csv('./data/benchmark_5_100_high.csv')
 
 # Create configuration labels
 df['configuration'] = df.apply(
@@ -21,12 +21,12 @@ result = pd.pivot_table(
 ).reset_index()
 
 # Reorder columns to show successful, discard, random
-result = result[['function_name', 'configuration', 'successful', 'discard', 'random']]
+result = result[['function_name', 'configuration', 'successful', 'discard']]
 
 # Print the table
 print("Bug Status Counts by Function and Configuration:")
 print(result.to_string(index=False))
 
 # Optional: Save to CSV
-result.to_csv('./data/bug_status_counts.csv', index=False)
-print("\nResults saved to './data/bug_status_counts.csv'")
+result.to_csv('./data/quality_high.csv', index=False)
+print("\nResults saved to './data/quality_high.csv'")

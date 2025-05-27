@@ -323,6 +323,10 @@ defmodule Injector do
     {:->, meta, [matcher, inject_do(clause, {ctr, id})]}
   end
 
+  defp handle_statement({:=, meta, [var, val]}, config) do
+    {:=, meta, [var, handle_statement(val, config)]}
+  end
+
   defp handle_statement(pass, _) do
     pass
   end

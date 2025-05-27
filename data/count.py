@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Load the data
-df = pd.read_csv('./data/benchmark_5_100_low.csv')
+df = pd.read_csv('./data/benchmark_5_100_high.csv')
 
 # Define the configuration mapping and order
 config_mapping = {
@@ -39,5 +39,5 @@ print("Bugs Found per Function and Configuration:")
 print(bug_counts)
 
 # Optional: Save to CSV
-bug_counts.to_csv('bug_counts_summary.csv')
-print("\nResults saved to 'bug_counts_summary.csv'")
+bug_counts.to_csv('count_high.csv')
+print("\nResults saved to 'count_high.csv'")

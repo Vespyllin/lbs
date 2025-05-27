@@ -1,139 +1,122 @@
-function_name,timeout,is_schedule,is_mask,is_trim,time,iterations,queue,input_len
-nested,300,true,true,true,64,1387215,discard,17
-nested,300,true,true,true,92,4760964,successful,19
-nested,300,true,true,true,42,1892167,successful,17
-nested,300,true,true,true,183,9358482,discard,9
-nested,300,true,true,true,209,12491240,discard,18
-nested,300,true,true,true,232,7774830,discard,14
-nested,300,true,true,true,80,1484307,discard,15
-nested,300,true,true,true,139,7360138,discard,11
-nested,300,true,true,true,222,8553109,discard,17
-nested,300,true,true,true,257,9395135,successful,14
-nested,300,true,true,true,291,13544772,successful,14
-nested,300,true,true,true,128,5500424,discard,27
-nested,300,true,true,true,56,3521704,successful,13
-nested,300,true,true,true,115,3855721,discard,18
-nested,300,true,true,true,281,15202923,discard,7
-nested,300,true,true,true,262,13726184,successful,14
-nested,300,true,true,true,95,4110164,discard,35
-nested,300,true,true,true,25,809074,discard,24
-nested,300,true,true,true,63,4130394,successful,15
-nested,300,true,true,true,283,9497634,successful,19
-nested,300,true,true,true,195,9217029,successful,12
-nested,300,true,true,true,88,3228862,discard,18
-nested,300,true,true,true,21,1008799,successful,20
-nested,300,true,true,true,133,5551232,discard,22
-nested,300,true,true,true,125,2904735,successful,14
+function_name, timeout, is_schedule, is_mask, is_trim, time, iterations, queue     , input_len
+nested       ,     300, true       , true   , true   ,   64,    1387215, discard   ,        17
+nested       ,     300, true       , true   , true   ,   92,    4760964, successful,        19
+nested       ,     300, true       , true   , true   ,   42,    1892167, successful,        17
+nested       ,     300, true       , true   , true   ,  183,    9358482, discard   ,         9
+nested       ,     300, true       , true   , true   ,  209,   12491240, discard   ,        18
+nested       ,     300, true       , true   , true   ,  232,    7774830, discard   ,        14
+nested       ,     300, true       , true   , true   ,   80,    1484307, discard   ,        15
+nested       ,     300, true       , true   , true   ,  139,    7360138, discard   ,        11
+nested       ,     300, true       , true   , true   ,  222,    8553109, discard   ,        17
+nested       ,     300, true       , true   , true   ,  257,    9395135, successful,        14
+nested       ,     300, true       , true   , true   ,  291,   13544772, successful,        14
+nested       ,     300, true       , true   , true   ,  128,    5500424, discard   ,        27
+nested       ,     300, true       , true   , true   ,   56,    3521704, successful,        13
+nested       ,     300, true       , true   , true   ,  115,    3855721, discard   ,        18
+nested       ,     300, true       , true   , true   ,  281,   15202923, discard   ,         7
+nested       ,     300, true       , true   , true   ,  262,   13726184, successful,        14
+nested       ,     300, true       , true   , true   ,   95,    4110164, discard   ,        35
+nested       ,     300, true       , true   , true   ,   25,     809074, discard   ,        24
+nested       ,     300, true       , true   , true   ,   63,    4130394, successful,        15
+nested       ,     300, true       , true   , true   ,  283,    9497634, successful,        19
+nested       ,     300, true       , true   , true   ,  195,    9217029, successful,        12
+nested       ,     300, true       , true   , true   ,   88,    3228862, discard   ,        18
+nested       ,     300, true       , true   , true   ,   21,    1008799, successful,        20
+nested       ,     300, true       , true   , true   ,  133,    5551232, discard   ,        22
+nested       ,     300, true       , true   , true   ,  125,    2904735, successful,        14
 
 
-flat,300,true,true,true,92,4934435,random,17
-flat,300,true,true,true,177,9565566,random,29
-flat,300,true,true,false,231,13450709,random,27
-flat,300,true,true,false,74,4280992,random,25
-flat,300,true,true,false,2,137695,random,25
-flat,300,true,true,false,121,6779299,random,24
-flat,300,true,true,false,130,9007169,random,16
-flat,300,true,false,false,223,13650589,random,24
-flat,300,true,false,false,49,2694924,random,31
+nested       ,     300, true       , true   , false  ,   55,    1268141, successful,        23
+nested       ,     300, true       , true   , false  ,  139,    4644142, successful,        27
+nested       ,     300, true       , true   , false  ,   21,     802129, successful,        26
+nested       ,     300, true       , true   , false  ,   31,     984937, successful,        27
+nested       ,     300, true       , true   , false  ,   62,    1022789, successful,        27
+nested       ,     300, true       , true   , false  ,  128,    3820512, successful,        26
+nested       ,     300, true       , true   , false  ,  290,    2028876, discard   ,         7
+nested       ,     300, true       , true   , false  ,   83,    3504674, successful,        15
+nested       ,     300, true       , true   , false  ,  147,    1189754, successful,        32
+nested       ,     300, true       , true   , false  ,   30,     496944, successful,        19
+nested       ,     300, true       , true   , false  ,   38,    1829374, successful,        25
+nested       ,     300, true       , true   , false  ,  153,    3632723, discard   ,        32
+nested       ,     300, true       , true   , false  ,  138,    1737813, successful,        29
+nested       ,     300, true       , true   , false  ,  141,    4604467, successful,        26
+nested       ,     300, true       , true   , false  ,  160,    1824006, discard   ,        21
+nested       ,     300, true       , true   , false  ,   57,    2739911, successful,        18
+nested       ,     300, true       , true   , false  ,  175,    2853942, successful,        19
+nested       ,     300, true       , true   , false  ,  175,    2431349, discard   ,        23
+nested       ,     300, true       , true   , false  ,   11,     966664, successful,        16
+nested       ,     300, true       , true   , false  ,   32,    2309039, successful,        31
+nested       ,     300, true       , true   , false  ,  192,    1178968, discard   ,        12
+nested       ,     300, true       , true   , false  ,   22,    1799456, successful,        23
+nested       ,     300, true       , true   , false  ,   24,     606447, successful,        17
+nested       ,     300, true       , true   , false  ,   83,     659864, successful,        20
+nested       ,     300, true       , true   , false  ,   16,    1121588, successful,        23
+nested       ,     300, true       , true   , false  ,   23,     258375, discard   ,         6
+nested       ,     300, true       , true   , false  ,  129,    1749746, successful,        15
+nested       ,     300, true       , true   , false  ,   14,     224443, successful,        35
+nested       ,     300, true       , true   , false  ,  299,    4354095, successful,        26
+nested       ,     300, true       , true   , false  ,  158,    1305573, successful,        22
+nested       ,     300, true       , true   , false  ,  157,     941972, successful,        34
 
 
-flat,300,false,false,false,118,8645962,random,28
-flat,300,false,false,false,219,16750106,random,31
-flat,300,false,false,false,13,1105465,random,21
-flat,300,false,false,false,150,13034644,random,26
+nested       ,     300, true       , false  , false  ,  143,    6822968, successful,        35
 
 
-nested,300,true,true,false,55,1268141,successful,23
-nested,300,true,true,false,139,4644142,successful,27
-nested,300,true,true,false,21,802129,successful,26
-nested,300,true,true,false,31,984937,successful,27
-nested,300,true,true,false,62,1022789,successful,27
-nested,300,true,true,false,128,3820512,successful,26
-nested,300,true,true,false,290,2028876,discard,7
-nested,300,true,true,false,83,3504674,successful,15
-nested,300,true,true,false,147,1189754,successful,32
-nested,300,true,true,false,30,496944,successful,19
-nested,300,true,true,false,38,1829374,successful,25
-nested,300,true,true,false,153,3632723,discard,32
-nested,300,true,true,false,138,1737813,successful,29
-nested,300,true,true,false,141,4604467,successful,26
-nested,300,true,true,false,160,1824006,discard,21
-nested,300,true,true,false,57,2739911,successful,18
-nested,300,true,true,false,175,2853942,successful,19
-nested,300,true,true,false,175,2431349,discard,23
-nested,300,true,true,false,11,966664,successful,16
-nested,300,true,true,false,32,2309039,successful,31
-nested,300,true,true,false,192,1178968,discard,12
-nested,300,true,true,false,22,1799456,successful,23
-nested,300,true,true,false,24,606447,successful,17
-nested,300,true,true,false,83,659864,successful,20
-nested,300,true,true,false,16,1121588,successful,23
-nested,300,true,true,false,23,258375,discard,6
-nested,300,true,true,false,129,1749746,successful,15
-nested,300,true,true,false,14,224443,successful,35
-nested,300,true,true,false,299,4354095,successful,26
-nested,300,true,true,false,158,1305573,successful,22
-nested,300,true,true,false,157,941972,successful,34
+mult         ,     300, true       , true   , true   ,   32,     795151, discard   ,        22
+mult         ,     300, true       , true   , true   ,   57,     397532, discard   ,         6
+mult         ,     300, true       , true   , true   ,   79,     550821, discard   ,        15
+mult         ,     300, true       , true   , true   ,  146,    3988394, discard   ,        14
+mult         ,     300, true       , true   , true   ,   23,     873938, successful,        15
+mult         ,     300, true       , true   , true   ,   26,    1653478, successful,        17
+mult         ,     300, true       , true   , true   ,   66,    1494029, discard   ,        19
+mult         ,     300, true       , true   , true   ,  199,    6731844, discard   ,        20
+mult         ,     300, true       , true   , true   ,   32,    2523931, successful,        12
+mult         ,     300, true       , true   , true   ,  193,    5585687, discard   ,         9
+mult         ,     300, true       , true   , true   ,  159,    5711399, discard   ,        13
+mult         ,     300, true       , true   , true   ,  266,    6983989, discard   ,        31
+mult         ,     300, true       , true   , true   ,   63,    1246782, discard   ,        11
+mult         ,     300, true       , true   , true   ,  214,    3745251, discard   ,        35
+mult         ,     300, true       , true   , true   ,  250,    5784992, successful,        18
+mult         ,     300, true       , true   , true   ,   65,    1301979, discard   ,        17
+mult         ,     300, true       , true   , true   ,  285,    7829909, discard   ,        20
+mult         ,     300, true       , true   , true   ,  199,    8884355, discard   ,         9
+mult         ,     300, true       , true   , true   ,   25,     117778, discard   ,        18
+mult         ,     300, true       , true   , true   ,  279,    1092831, discard   ,        50
+mult         ,     300, true       , true   , true   ,  133,    3259563, discard   ,         7
+mult         ,     300, true       , true   , true   ,  238,    5158231, discard   ,        26
+mult         ,     300, true       , true   , true   ,  240,    2145018, discard   ,        21
+mult         ,     300, true       , true   , true   ,   23,     530373, discard   ,        24
 
+mult         ,     300, true       , true   , false  ,    4,      81884, successful,        18
+mult         ,     300, true       , true   , false  ,   72,    3202392, successful,        21
+mult         ,     300, true       , true   , false  ,   71,    1897697, successful,        20
+mult         ,     300, true       , true   , false  ,    1,      37720, successful,        20
+mult         ,     300, true       , true   , false  ,  276,    3641768, successful,        20
+mult         ,     300, true       , true   , false  ,   22,     972683, successful,        35
+mult         ,     300, true       , true   , false  ,   13,     479523, successful,        37
+mult         ,     300, true       , true   , false  ,   23,    1312940, successful,        30
+mult         ,     300, true       , true   , false  ,   25,    1520138, successful,        21
+mult         ,     300, true       , true   , false  ,   80,     670599, discard   ,        24
+mult         ,     300, true       , true   , false  ,  126,    1545648, discard   ,        35
+mult         ,     300, true       , true   , false  ,  153,    2975222, successful,        24
+mult         ,     300, true       , true   , false  ,   48,    2597590, successful,        17
+mult         ,     300, true       , true   , false  ,   97,    2051958, successful,        37
+mult         ,     300, true       , true   , false  ,   14,     904549, successful,        19
+mult         ,     300, true       , true   , false  ,   14,    1069153, successful,        27
+mult         ,     300, true       , true   , false  ,   28,     366176, successful,        32
+mult         ,     300, true       , true   , false  ,  135,    1398521, successful,        31
+mult         ,     300, true       , true   , false  ,  202,    1210067, successful,        30
+mult         ,     300, true       , true   , false  ,  136,    1204656, discard   ,        21
+mult         ,     300, true       , true   , false  ,  109,    1201441, successful,        24
+mult         ,     300, true       , true   , false  ,   13,     341344, successful,        28
+mult         ,     300, true       , true   , false  ,  173,    8069170, discard   ,        15
+mult         ,     300, true       , true   , false  ,  102,     736351, successful,        29
+mult         ,     300, true       , true   , false  ,   65,     716459, successful,        23
+mult         ,     300, true       , true   , false  ,   20,     161441, successful,        22
+mult         ,     300, true       , true   , false  ,  275,    2070737, successful,        21
 
-nested,300,true,false,false,143,6822968,successful,35
-
-
-mult,300,true,true,true,32,795151,discard,22
-mult,300,true,true,true,57,397532,discard,6
-mult,300,true,true,true,79,550821,discard,15
-mult,300,true,true,true,146,3988394,discard,14
-mult,300,true,true,true,23,873938,successful,15
-mult,300,true,true,true,26,1653478,successful,17
-mult,300,true,true,true,66,1494029,discard,19
-mult,300,true,true,true,199,6731844,discard,20
-mult,300,true,true,true,32,2523931,successful,12
-mult,300,true,true,true,193,5585687,discard,9
-mult,300,true,true,true,159,5711399,discard,13
-mult,300,true,true,true,266,6983989,discard,31
-mult,300,true,true,true,63,1246782,discard,11
-mult,300,true,true,true,214,3745251,discard,35
-mult,300,true,true,true,250,5784992,successful,18
-mult,300,true,true,true,65,1301979,discard,17
-mult,300,true,true,true,285,7829909,discard,20
-mult,300,true,true,true,199,8884355,discard,9
-mult,300,true,true,true,25,117778,discard,18
-mult,300,true,true,true,279,1092831,discard,50
-mult,300,true,true,true,133,3259563,discard,7
-mult,300,true,true,true,238,5158231,discard,26
-mult,300,true,true,true,240,2145018,discard,21
-mult,300,true,true,true,23,530373,discard,24
-
-mult,300,true,true,false,4,81884,successful,18
-mult,300,true,true,false,72,3202392,successful,21
-mult,300,true,true,false,71,1897697,successful,20
-mult,300,true,true,false,1,37720,successful,20
-mult,300,true,true,false,276,3641768,successful,20
-mult,300,true,true,false,22,972683,successful,35
-mult,300,true,true,false,13,479523,successful,37
-mult,300,true,true,false,23,1312940,successful,30
-mult,300,true,true,false,25,1520138,successful,21
-mult,300,true,true,false,80,670599,discard,24
-mult,300,true,true,false,126,1545648,discard,35
-mult,300,true,true,false,153,2975222,successful,24
-mult,300,true,true,false,48,2597590,successful,17
-mult,300,true,true,false,97,2051958,successful,37
-mult,300,true,true,false,14,904549,successful,19
-mult,300,true,true,false,14,1069153,successful,27
-mult,300,true,true,false,28,366176,successful,32
-mult,300,true,true,false,135,1398521,successful,31
-mult,300,true,true,false,202,1210067,successful,30
-mult,300,true,true,false,136,1204656,discard,21
-mult,300,true,true,false,109,1201441,successful,24
-mult,300,true,true,false,13,341344,successful,28
-mult,300,true,true,false,173,8069170,discard,15
-mult,300,true,true,false,102,736351,successful,29
-mult,300,true,true,false,65,716459,successful,23
-mult,300,true,true,false,20,161441,successful,22
-mult,300,true,true,false,275,2070737,successful,21
-
-mult,300,true,false,false,8,414758,successful,17
-mult,300,true,false,false,21,657101,successful,19
-mult,300,true,false,false,152,3939172,successful,26
+mult         ,     300, true       , false  , false  ,    8,     414758, successful,        17
+mult         ,     300, true       , false  , false  ,   21,     657101, successful,        19
+mult         ,     300, true       , false  , false  ,  152,    3939172, successful,        26
 
 

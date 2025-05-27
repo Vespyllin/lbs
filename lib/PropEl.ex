@@ -79,25 +79,35 @@ defmodule PropEl do
     end
   end
 
-  defp coverage_server(state) do
+  defp coverage_server(state, coverage) do
     receive do
       :stop ->
         :ok
 
       :drop ->
-        coverage_server(MapSet.new())
+        coverage_server(MapSet.new(), coverage)
 
-      {:all, caller} ->
-        send(caller, {:ok, state})
+      {:count, caller} ->
+        send(caller, {:ok, coverage |> MapSet.to_list() |> length()})
+        coverage_server(state, coverage)
+
+      {:check, "", caller} ->
+        send(caller, :seen)
+        coverage_server(state, coverage)
 
       {:check, id, caller} ->
         response = if MapSet.member?(state, id), do: :seen, else: :new
         send(caller, response)
-        coverage_server(state)
+        coverage_server(state, coverage)
+
+      {:submit, ""} ->
+        coverage_server(state, coverage)
 
       {:submit, id} ->
         new_state = MapSet.put(state, id)
-        coverage_server(new_state)
+        new_coverage = MapSet.put(state, id)
+
+        coverage_server(new_state, new_coverage)
     end
   end
 
@@ -152,6 +162,7 @@ defmodule PropEl do
           )
 
         energy = 100 * (2 ** String.length(seed) * length(path_ids))
+        # energy = 2 ** String.length(seed) * length(path_ids)
 
         send(queue_pid, {:successful, seed, mask, energy})
 
@@ -179,6 +190,8 @@ defmodule PropEl do
     else
       if use_scheduler do
         queue({queue_pid, coverage_pid, mod, calc_mask, do_trim}, path_ids, input, mask, quality)
+      else
+        send(coverage_pid, {:submit, Enum.join(path_ids, "/")})
       end
 
       fuzz(config, iter + 1)
@@ -205,7 +218,7 @@ defmodule PropEl do
     mod = Injector.instrument(ast, fn_name)
 
     # Spawn state servers
-    coverage_pid = spawn_link(fn -> coverage_server(MapSet.new()) end)
+    coverage_pid = spawn_link(fn -> coverage_server(MapSet.new(), MapSet.new()) end)
 
     queue_pid =
       spawn_link(fn ->
@@ -259,30 +272,38 @@ defmodule PropEl do
   end
 
   def benchmark_runner(mod, p, use_scheduler, calc_mask, do_trim, do_rotate) do
-    coverage_pid =
-      if(use_scheduler, do: spawn_link(fn -> coverage_server(MapSet.new()) end), else: nil)
+    coverage_pid = spawn_link(fn -> coverage_server(MapSet.new(), MapSet.new()) end)
 
     queue_pid =
-      if(use_scheduler,
-        do:
-          spawn_link(fn ->
-            queue_server(
-              %{qsucc: [], qdisc: []},
-              fn -> send(coverage_pid, :drop) end,
-              do_rotate
-            )
-          end),
-        else: nil
-      )
+      if(use_scheduler) do
+        spawn_link(fn ->
+          queue_server(
+            %{qsucc: [], qdisc: []},
+            fn -> send(coverage_pid, :drop) end,
+            do_rotate
+          )
+        end)
+      else
+        nil
+      end
 
     {:bug, iter, _, input, _, quality} =
       fuzz({queue_pid, coverage_pid, mod, p, use_scheduler, calc_mask, do_trim})
 
+    send(coverage_pid, {:count, self()})
+
+    paths_hit =
+      receive do
+        # Account for base path and branch hit
+        {:ok, x} -> x + 1 + 1
+      end
+
     if use_scheduler do
       send(queue_pid, :stop)
-      send(coverage_pid, :stop)
     end
 
-    {:bug, iter, input, quality}
+    send(coverage_pid, :stop)
+
+    {:bug, iter, input, quality, paths_hit}
   end
 end
