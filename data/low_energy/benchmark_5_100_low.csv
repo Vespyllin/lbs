@@ -24,8 +24,6 @@ nested       ,     300, true       , true   , true   ,   88,    3228862, discard
 nested       ,     300, true       , true   , true   ,   21,    1008799, successful,        20
 nested       ,     300, true       , true   , true   ,  133,    5551232, discard   ,        22
 nested       ,     300, true       , true   , true   ,  125,    2904735, successful,        14
-
-
 nested       ,     300, true       , true   , false  ,   55,    1268141, successful,        23
 nested       ,     300, true       , true   , false  ,  139,    4644142, successful,        27
 nested       ,     300, true       , true   , false  ,   21,     802129, successful,        26
@@ -57,11 +55,7 @@ nested       ,     300, true       , true   , false  ,   14,     224443, success
 nested       ,     300, true       , true   , false  ,  299,    4354095, successful,        26
 nested       ,     300, true       , true   , false  ,  158,    1305573, successful,        22
 nested       ,     300, true       , true   , false  ,  157,     941972, successful,        34
-
-
 nested       ,     300, true       , false  , false  ,  143,    6822968, successful,        35
-
-
 mult         ,     300, true       , true   , true   ,   32,     795151, discard   ,        22
 mult         ,     300, true       , true   , true   ,   57,     397532, discard   ,         6
 mult         ,     300, true       , true   , true   ,   79,     550821, discard   ,        15
@@ -86,7 +80,6 @@ mult         ,     300, true       , true   , true   ,  133,    3259563, discard
 mult         ,     300, true       , true   , true   ,  238,    5158231, discard   ,        26
 mult         ,     300, true       , true   , true   ,  240,    2145018, discard   ,        21
 mult         ,     300, true       , true   , true   ,   23,     530373, discard   ,        24
-
 mult         ,     300, true       , true   , false  ,    4,      81884, successful,        18
 mult         ,     300, true       , true   , false  ,   72,    3202392, successful,        21
 mult         ,     300, true       , true   , false  ,   71,    1897697, successful,        20
@@ -114,7 +107,6 @@ mult         ,     300, true       , true   , false  ,  102,     736351, success
 mult         ,     300, true       , true   , false  ,   65,     716459, successful,        23
 mult         ,     300, true       , true   , false  ,   20,     161441, successful,        22
 mult         ,     300, true       , true   , false  ,  275,    2070737, successful,        21
-
 mult         ,     300, true       , false  , false  ,    8,     414758, successful,        17
 mult         ,     300, true       , false  , false  ,   21,     657101, successful,        19
 mult         ,     300, true       , false  , false  ,  152,    3939172, successful,        26

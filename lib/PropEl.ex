@@ -6,6 +6,7 @@ defmodule PropEl do
   @disc_energy 5
   @max_string_size 32
   @discard_odds 3
+  # @max_queue_len 2 ** 27
 
   defp contained?(sublist, list) do
     sublist_length = length(sublist)
@@ -38,6 +39,10 @@ defmodule PropEl do
         queue_server(new_state, on_empty, rotate)
 
       {:discard, input, mask, energy} ->
+        # if(length(state.qdisc) > @max_queue_len,
+        #   do: state.qdisc |> Enum.reverse() |> tl() |> Enum.reverse(),
+        #   else: state.qdisc
+        # )
         new_state = %{state | qdisc: [{input, mask, energy}] ++ state.qdisc}
         queue_server(new_state, on_empty, rotate)
 

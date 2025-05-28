@@ -90,6 +90,15 @@ defmodule Bench do
     end
   end
 
+  def print_datetime do
+    {{year, month, day}, {hour, minute, second}} = :calendar.local_time()
+
+    :io.format(
+      "~2..0b/~2..0b/~2..0b - ~2..0b/~2..0b/~2..0b~n",
+      [day, month, rem(year, 100), hour, minute, second]
+    )
+  end
+
   def run(tests, opts, iterations, timeout, csv_path) do
     # Initialize CSV if not exists
     unless File.exists?(csv_path) do
@@ -99,7 +108,8 @@ defmodule Bench do
       )
     end
 
-    IO.puts("===================== Benchmarks Initiated =====================")
+    print_datetime()
+    IO.puts("================= Benchmarks Initiated =================")
 
     tests
     |> Enum.map(fn test ->
@@ -107,7 +117,7 @@ defmodule Bench do
       File.write!(csv_path, "\n", [:append])
     end)
 
-    IO.puts("===================== Benchmarks Completed =====================\n")
+    IO.puts("================= Benchmarks Completed =================\n")
 
     :ok
   end
@@ -126,8 +136,7 @@ defmodule Bench do
         "#{to_string(fn_name)}x#{iterations}@#{floor(timeout / (1000 * 60))}m\t->\t" <>
         "[sch:#{if(scheduler, do: "✓", else: "✗")}] " <>
         "[msk:#{if(mask, do: "✓", else: "✗")}] " <>
-        "[trm:#{if(trim, do: "✓", else: "✗")}] " <>
-        "[rot:#{if(rotate, do: "✓", else: "✗")}] "
+        "[trm:#{if(trim, do: "✓", else: "✗")}] "
     )
 
     StatusPrinter.start_link()
@@ -177,7 +186,6 @@ defmodule Bench do
         end
       end,
       max_concurrency: System.schedulers_online(),
-      # max_concurrency: 10,
       timeout: :infinity
     )
     |> Enum.reject(fn _ -> true end)

@@ -4,7 +4,7 @@ import seaborn as sns
 import numpy as np
 
 # Load and prepare the data
-df = pd.read_csv('./data/benchmark_5_100_high.csv')
+df = pd.read_csv('./benchmark_60_4_high.csv')
 
 # Create configuration labels
 df['configuration'] = df.apply(lambda row: 
@@ -32,14 +32,14 @@ for function in df['function_name'].unique():
                     label=config, color=palette[i], linewidth=2)
             plt.scatter(config_df['iterations'], cumulative_bugs, color=palette[i], alpha=0.7)
     
-    plt.title(f'{function}: Cumulative Bugs Found Over Iterations - High Energy (5m Timeout)')
+    plt.title(f'{'Narrow Case' if function == 'nested' else 'Wide Case'}: Cumulative Bugs Found Over Iterations - (1h Timeout)')
     plt.xlabel('Iterations')
     plt.ylabel('Bugs Found')
     plt.legend()
     plt.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(f'./data/high_energy/{function}_iter_high.png', dpi=300)
+    plt.savefig(f'./data//{function}_iter_long.png', dpi=300)
     plt.close()
 
 

@@ -5,34 +5,27 @@
 #   true
 # )
 
-# mod = PropEl.benchmark_prep("./tests/example_module.ex", :check_string)
+# Injector.out("./tests/example_module.ex", :check_string, "./", true)
 
-# PropEl.benchmark_runner(mod, fn res, _input -> res == :ok end, false, false, false, false)
+file = "./tests/custom_benchmarks.ex"
+generic_test = fn res, _input -> res == :ok end
 
-Injector.out("./tests/example_module.ex", :check_string, "./", true)
-
-# file = "./tests/custom_benchmarks.ex"
-# generic_test = fn res, _input -> res == :ok end
-
-# # nested = {file, :nested, generic_test}
-# mult = {file, :mult, generic_test}
-
-# # all_cases = [nested, mult]
+nested = {file, :nested, generic_test}
+mult = {file, :mult, generic_test}
 
 # full = {true, true, true, false}
 # mask = {true, true, false, false}
-# # scheduler = {true, false, false, false}
-# # random = {false, false, false, false}
+scheduler = {true, false, false, false}
+random = {false, false, false, false}
 
-# all_configs = [full, mask]
+all_cases = [nested, mult]
+all_configs = [scheduler, random]
 
-# t = 1000
-# iters = 96
+iters = 4
+timeout = 60 * 60 * 1000
+f = "sched_rand_4_60.csv"
 
-# timeout = 60 * 5 * t
-# f = "coverage_high_2.csv"
-
-# all_configs
-# |> Enum.map(fn config ->
-#   Bench.run([mult], config, iters, timeout, f)
-# end)
+all_configs
+|> Enum.map(fn config ->
+  Bench.run(all_cases, config, iters, timeout, f)
+end)
