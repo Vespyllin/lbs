@@ -13,19 +13,19 @@ generic_test = fn res, _input -> res == :ok end
 nested = {file, :nested, generic_test}
 mult = {file, :mult, generic_test}
 
-# full = {true, true, true, false}
-# mask = {true, true, false, false}
-scheduler = {true, false, false, false}
-random = {false, false, false, false}
+trim = {true, true, true, false}
+mask = {true, true, false, false}
+schd = {true, false, false, false}
+rand = {false, false, false, false}
 
-all_cases = [nested, mult]
-all_configs = [scheduler, random]
+t = 60 * 1000
 
-iters = 4
-timeout = 60 * 60 * 1000
-f = "sched_rand_4_60.csv"
+conc = System.schedulers_online()
+iters = 100
+timeout = 15 * t
+f = "benchmarks_#{iters}_#{floor(timeout / t)}.csv"
 
-all_configs
-|> Enum.map(fn config ->
-  Bench.run(all_cases, config, iters, timeout, f)
+[trim, mask, schd, rand]
+|> Enum.each(fn config ->
+  Bench.run([nested, mult], config, iters, timeout, conc, f)
 end)
