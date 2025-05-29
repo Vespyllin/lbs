@@ -159,7 +159,7 @@ defmodule Mutator do
     end
   end
 
-  def trim(check_fn, input, min_len \\ 1) do
+  def trim(check_fn, input, min_len \\ 0) do
     masks = compute_mask(check_fn, input)
 
     case masks |> Enum.with_index() |> Enum.filter(fn {mask, _} -> :delete in mask end) do

@@ -1,1 +1,0 @@
-mix run script.exs
