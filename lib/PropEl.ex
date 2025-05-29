@@ -209,16 +209,18 @@ defmodule PropEl do
       IO.ANSI.reset()
   end
 
-  def propel(source_file, fn_name, p, print) do
+  def out(source_file, fn_name, out_dir) do
+    Injector.out(source_file, fn_name, out_dir)
+  end
+
+  def propel(source_file, fn_name, p) do
     # Generate AST and run fuzzer
     ast =
       source_file
       |> File.read!()
       |> Code.string_to_quoted!()
 
-    if(print) do
-      IO.puts("Injecting fuzzing framework...")
-    end
+    IO.puts("Injecting fuzzing framework...")
 
     mod = Injector.instrument(ast, fn_name)
 
@@ -230,9 +232,7 @@ defmodule PropEl do
         queue_server(%{qsucc: [], qdisc: []}, fn -> send(coverage_pid, :drop) end, true)
       end)
 
-    if(print) do
-      IO.puts("Initiating fuzzing loop...\n")
-    end
+    IO.puts("Initiating fuzzing loop...\n")
 
     return_val =
       {:bug, iter, path_ids, input, res, quality} =
@@ -241,28 +241,26 @@ defmodule PropEl do
     send(queue_pid, :stop)
     send(coverage_pid, :stop)
 
-    if(print) do
-      IO.puts(
-        "Bug found at iter ##{iter} with " <>
-          inspect(quality) <>
-          " input " <>
-          blue(inspect(input)) <>
-          " (trimmed: " <>
-          blue(
-            inspect(
-              Mutator.trim(fn mutated_input -> check_fn(mod, mutated_input, path_ids) end, input)
-            )
-          ) <>
-          ")" <>
-          " yielding result:"
-      )
+    IO.puts(
+      "Bug found at iter ##{iter} with " <>
+        inspect(quality) <>
+        " input " <>
+        blue(inspect(input)) <>
+        " (trimmed: " <>
+        blue(
+          inspect(
+            Mutator.trim(fn mutated_input -> check_fn(mod, mutated_input, path_ids) end, input)
+          )
+        ) <>
+        ")" <>
+        " yielding result:"
+    )
 
-      IO.puts(IO.ANSI.red() <> inspect(res) <> IO.ANSI.reset() <> "\n")
+    IO.puts(IO.ANSI.red() <> inspect(res) <> IO.ANSI.reset() <> "\n")
 
-      if(length(path_ids) > 0) do
-        IO.puts("===== Traversed Branches =====")
-        Blame.blame(ast, path_ids, fn_name)
-      end
+    if(length(path_ids) > 0) do
+      IO.puts("===== Traversed Branches =====")
+      Blame.blame(ast, path_ids, fn_name)
     end
 
     return_val

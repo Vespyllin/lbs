@@ -10,38 +10,27 @@ defmodule Injector do
     mod_name
   end
 
-  def out(source_file, fn_name, dest_path \\ nil, source_code \\ false) do
+  def out(source_file, fn_name, dest_path)
+      when is_binary(source_file) and is_binary(dest_path) and is_atom(fn_name) do
     try do
-      unless !dest_path || File.dir?(dest_path),
+      unless File.dir?(dest_path),
         do: raise("2nd argument must be an existing directory.")
 
       unless String.ends_with?(source_file, ".ex"),
         do: raise("Source must be a .ex file.")
 
+      IO.puts("Modifying source code...")
       file_name = Path.basename(source_file, ".ex")
       read_res = File.read!(source_file)
       ast = Code.string_to_quoted!(read_res)
 
       modified_ast = handle_ast(ast, {fn_name, 1})
 
-      [{mod_name, binary}] = Code.compile_quoted(modified_ast)
-      IO.puts("Modified file compiled and loaded into the environment as \"#{mod_name}\".")
+      dest_file = "#{dest_path}/#{file_name}_fuzz.ex"
 
-      if dest_path do
-        if source_code do
-          dest_file_path = "#{dest_path}/#{file_name}_fuzz.ex"
+      File.write!(dest_file, Macro.to_string(modified_ast))
 
-          File.write!(dest_file_path, Macro.to_string(modified_ast))
-
-          IO.puts("Modified source code written to \"#{dest_file_path}\".")
-        else
-          dest_file_path = "#{dest_path}/#{mod_name}.beam"
-
-          File.write!(dest_file_path, binary)
-
-          IO.puts("BEAM written to \"#{dest_file_path}\".")
-        end
-      end
+      IO.puts("Modified source code written to \"#{dest_file}\".")
     rescue
       e in File.Error ->
         case e.reason do

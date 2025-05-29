@@ -293,6 +293,15 @@ defmodule Blame do
     IO.write(IO.ANSI.reset())
   end
 
+  defp traverse({:=, _meta, [var, val]}, {depth, ctr, acc}, config) do
+    IO.write(
+      pad(depth) <>
+        Macro.to_string(var) <> " ="
+    )
+
+    traverse(val, {depth, ctr, acc}, config)
+  end
+
   defp traverse({:->, _meta, [[matcher], clause]}, {depth, ctr, acc}, config) do
     IO.puts(
       pad(depth) <>
