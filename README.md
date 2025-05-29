@@ -4,8 +4,7 @@
 
 ## Features
 
-- Coverage-guided fuzzing with priority-based scheduling  
-- Property verification through user-defined predicates  
+- Coverage-guided property-based fuzzing
 - Support for conditionals, message passing, and basic recursion  
 - Debugging tools to visualize coverage and failures
 
